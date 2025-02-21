@@ -1,0 +1,5 @@
+# Created at 2025-02-21T13:28:54.318
+Boot Manifest-JAR contains absolute paths in classpath 'E:\DataBridge-Java\DataBridge-Java\target\test-classes'
+Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+'other' has different root
+
