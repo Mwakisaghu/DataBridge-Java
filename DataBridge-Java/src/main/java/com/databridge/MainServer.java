@@ -2,17 +2,53 @@ package com.databridge;
 
 import io.undertow.Undertow;
 import io.undertow.util.Headers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.databridge.controller.MigrationController;
 
 public class MainServer {
+    private static final Logger logger = LoggerFactory.getLogger(MainServer.class);
+
     public static void main(String[] args) {
+        MigrationController migrationController = new MigrationController();
+
         Undertow server = Undertow.builder()
                 .addHttpListener(8081, "0.0.0.0")
                 .setHandler(exchange -> {
-                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/plain");
-                    exchange.getResponseSender().send("DataBridge-Java is Running 🚀");
+                    try {
+                        String path = exchange.getRequestPath();
+                        String[] pathParts = path.split("/");
+
+                        if (path.equals("/")) {
+                            sendResponse(exchange, 200, "DataBridge-Java is Running...");
+                        } else if (pathParts.length == 3 && "migrate".equals(pathParts[1])) {
+                            String tableName = pathParts[2];
+                            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+
+                            try {
+                                String result = migrationController.migrateTable(tableName);
+                                sendResponse(exchange, 200, "{\"status\":\"success\",\"message\":\"" + result + "\"}");
+                            } catch (Exception e) {
+                                logger.error("Migration error: {}", e.getMessage(), e);
+                                sendResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Migration failed: " + e.getMessage() + "\"}");
+                            }
+                        } else {
+                            sendResponse(exchange, 404, "{\"status\":\"error\",\"message\":\"Endpoint not found.\"}");
+                        }
+                    } catch (Exception e) {
+                        logger.error("Unhandled error: {}", e.getMessage(), e);
+                        sendResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Internal Server Error.\"}");
+                    }
                 })
                 .build();
+
         server.start();
-        System.out.println("Server started on http://localhost:8081");
+        logger.info("Server started on http://localhost:8081");
+    }
+
+    private static void sendResponse(io.undertow.server.HttpServerExchange exchange, int statusCode, String message) {
+        exchange.setStatusCode(statusCode);
+        exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+        exchange.getResponseSender().send(message);
     }
 }
