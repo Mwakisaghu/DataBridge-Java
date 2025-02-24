@@ -1,37 +1,62 @@
 package com.databridge.service;
 
+import com.databridge.config.DatabaseConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.*;
 import java.util.*;
 
-import com.databridge.config.DatabaseConfig;
-
 public class DataInserter {
-    public static void insertData(String tableName, List<Map<String, Object>> dataList) throws SQLException {
-        if (dataList.isEmpty()) return;
+    private static final Logger logger = LoggerFactory.getLogger(DataInserter.class);
+
+    public static void insertData(String tableName, List<Map<String, Object>> dataList) {
+        if (dataList.isEmpty()) {
+            logger.warn("No data to insert for table: {}", tableName);
+            return;
+        }
+
+        // Validate table name to prevent SQL injection
+        if (!isValidTableName(tableName)) {
+            logger.error("Invalid table name: {}", tableName);
+            return;
+        }
 
         try (Connection conn = DatabaseConfig.getTargetConnection()) {
-            for (Map<String, Object> row : dataList) {
-                StringBuilder columns = new StringBuilder();
-                StringBuilder values = new StringBuilder();
-                List<Object> parameters = new ArrayList<>();
+            conn.setAutoCommit(false); // Enable transaction
 
-                for (Map.Entry<String, Object> entry : row.entrySet()) {
-                    columns.append(entry.getKey()).append(",");
-                    values.append("?,");
-                    parameters.add(entry.getValue());
-                }
+            // Extract column names from the first row
+            Map<String, Object> firstRow = dataList.get(0);
+            String columnNames = String.join(", ", firstRow.keySet());
+            String placeholders = String.join(", ", Collections.nCopies(firstRow.size(), "?"));
+            String sql = "INSERT INTO " + tableName + " (" + columnNames + ") VALUES (" + placeholders + ")";
 
-                String sql = "INSERT INTO " + tableName + " (" +
-                        columns.substring(0, columns.length() - 1) + ") VALUES (" +
-                        values.substring(0, values.length() - 1) + ")";
-
-                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                    for (int i = 0; i < parameters.size(); i++) {
-                        pstmt.setObject(i + 1, parameters.get(i));
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                for (Map<String, Object> row : dataList) {
+                    int index = 1;
+                    for (Object value : row.values()) {
+                        pstmt.setObject(index++, value);
                     }
-                    pstmt.executeUpdate();
+                    pstmt.addBatch();
                 }
+                // Execute batch insert
+                pstmt.executeBatch(); 
+
+                // Commit transaction
+                conn.commit(); 
+                logger.info("Successfully inserted {} rows into table: {}", dataList.size(), tableName);
+            } catch (SQLException e) {
+                // Rollback transaction on error
+                conn.rollback(); 
+                logger.error("Error inserting data into table '{}': {}", tableName, e.getMessage(), e);
             }
+
+        } catch (SQLException e) {
+            logger.error("Database connection error for table '{}': {}", tableName, e.getMessage(), e);
         }
+    }
+
+    private static boolean isValidTableName(String tableName) {
+        return tableName.matches("^[a-zA-Z0-9_]+$");
     }
 }
