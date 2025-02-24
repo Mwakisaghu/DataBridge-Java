@@ -6,9 +6,11 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.*;
 
 public class DataExtractor {
     private static final Logger logger = LoggerFactory.getLogger(DataExtractor.class);
+    private static final ExecutorService executorService = Executors.newFixedThreadPool(10); // Thread pool for parallel execution
 
     public static List<Map<String, Object>> fetchData(String tableName) {
         List<Map<String, Object>> dataList = new ArrayList<>();
@@ -41,6 +43,29 @@ public class DataExtractor {
         }
 
         return dataList;
+    }
+
+    public static Map<String, List<Map<String, Object>>> fetchMultipleTables(List<String> tableNames) {
+        Map<String, List<Map<String, Object>>> result = new ConcurrentHashMap<>();
+        List<Future<Void>> futures = new ArrayList<>();
+
+        for (String tableName : tableNames) {
+            futures.add(executorService.submit(() -> {
+                List<Map<String, Object>> data = fetchData(tableName);
+                result.put(tableName, data);
+                return null;
+            }));
+        }
+
+        for (Future<Void> future : futures) {
+            try {
+                future.get(); // Wait for all tasks to complete
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Error executing parallel data extraction: {}", e.getMessage(), e);
+            }
+        }
+
+        return result;
     }
 
     private static boolean isValidTableName(String tableName) {

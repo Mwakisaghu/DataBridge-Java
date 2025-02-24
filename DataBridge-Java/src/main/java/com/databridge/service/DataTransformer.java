@@ -6,12 +6,13 @@ import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Date;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class DataTransformer {
     private static final Logger logger = LoggerFactory.getLogger(DataTransformer.class);
-    private static final Faker faker = new Faker(); // Using `net.datafaker.Faker`
+    private static final Faker faker = new Faker();
+    private static final ExecutorService executorService = Executors.newFixedThreadPool(10); // Parallel execution
 
     public static Map<String, Object> applyTransformations(Map<String, Object> row, Map<String, String> transformations) {
         for (Map.Entry<String, String> entry : transformations.entrySet()) {
@@ -42,6 +43,24 @@ public class DataTransformer {
             }
         }
         return row;
+    }
+
+    public static List<Map<String, Object>> transformDataInParallel(List<Map<String, Object>> dataList, Map<String, String> transformations) {
+        List<Future<Map<String, Object>>> futures = new ArrayList<>();
+
+        for (Map<String, Object> row : dataList) {
+            futures.add(executorService.submit(() -> applyTransformations(row, transformations)));
+        }
+
+        List<Map<String, Object>> transformedData = new ArrayList<>();
+        for (Future<Map<String, Object>> future : futures) {
+            try {
+                transformedData.add(future.get());
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Error during parallel data transformation: {}", e.getMessage(), e);
+            }
+        }
+        return transformedData;
     }
 
     private static Date generateFakeDate(String transformation) {
