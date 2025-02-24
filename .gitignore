@@ -46,3 +46,7 @@ Thumbs.db
 # Gradle (if used)
 .gradle/
 build/
+
+# Ignore sensitive config files
+DataBridge-Java\src\resources\config.xml
+E:\DataBridge-Java\DataBridge-Java\src\resources\config.xml

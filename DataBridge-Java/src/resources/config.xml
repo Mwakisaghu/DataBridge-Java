@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+    <database>
+        <source>
+            <url>jdbc:mysql://localhost:3306/source_db</url>
+            <user>yourSourceUser</user>
+            <password>yourSourcePassword</password>
+        </source>
+        <target>
+            <url>jdbc:mysql://localhost:3306/target_db</url>
+            <user>yourTargetUser</user>
+            <password>yourTargetPassword</password>
+        </target>
+    </database>
+</config>
