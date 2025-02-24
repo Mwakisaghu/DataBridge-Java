@@ -2,12 +2,12 @@
 <config>
     <database>
         <source>
-            <url>jdbc:mysql://localhost:3306/source_db</url>
+            <url>jdbc:sqlserver://localhost:1433;databaseName=source_db</url>
             <user>yourSourceUser</user>
             <password>yourSourcePassword</password>
         </source>
         <target>
-            <url>jdbc:mysql://localhost:3306/target_db</url>
+            <url>jdbc:sqlserver://localhost:1433;databaseName=target_db</url>
             <user>yourTargetUser</user>
             <password>yourTargetPassword</password>
         </target>

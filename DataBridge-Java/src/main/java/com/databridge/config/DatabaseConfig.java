@@ -1,68 +1,48 @@
 package com.databridge.config;
 
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.InputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Properties;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 public class DatabaseConfig {
     private static String sourceDbUrl;
     private static String sourceDbUser;
     private static String sourceDbPassword;
-    
+
     private static String targetDbUrl;
     private static String targetDbUser;
     private static String targetDbPassword;
 
-    // Load configurations when the class is initialized
     static {
-        loadConfigurations();
+        loadConfig();
     }
 
-    private static void loadConfigurations() {
-        try (InputStream input = DatabaseConfig.class.getClassLoader().getResourceAsStream("config.xml")) {
-            if (input == null) {
-                throw new RuntimeException("Configuration file 'config.xml' not found in resources.");
-            }
-
+    private static void loadConfig() {
+        try {
+            File file = new File("config.xml");
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.parse(input);
-            document.getDocumentElement().normalize();
+            Document doc = builder.parse(new FileInputStream(file));
+            doc.getDocumentElement().normalize();
 
-            Element root = document.getDocumentElement();
-            NodeList sourceDb = root.getElementsByTagName("source");
-            NodeList targetDb = root.getElementsByTagName("target");
+            Element source = (Element) doc.getElementsByTagName("source").item(0);
+            sourceDbUrl = source.getElementsByTagName("url").item(0).getTextContent();
+            sourceDbUser = source.getElementsByTagName("user").item(0).getTextContent();
+            sourceDbPassword = source.getElementsByTagName("password").item(0).getTextContent();
 
-            if (sourceDb.getLength() > 0) {
-                Node node = sourceDb.item(0);
-                if (node.getNodeType() == Node.ELEMENT_NODE) {
-                    Element source = (Element) node;
-                    sourceDbUrl = source.getElementsByTagName("url").item(0).getTextContent();
-                    sourceDbUser = source.getElementsByTagName("user").item(0).getTextContent();
-                    sourceDbPassword = source.getElementsByTagName("password").item(0).getTextContent();
-                }
-            }
-
-            if (targetDb.getLength() > 0) {
-                Node node = targetDb.item(0);
-                if (node.getNodeType() == Node.ELEMENT_NODE) {
-                    Element target = (Element) node;
-                    targetDbUrl = target.getElementsByTagName("url").item(0).getTextContent();
-                    targetDbUser = target.getElementsByTagName("user").item(0).getTextContent();
-                    targetDbPassword = target.getElementsByTagName("password").item(0).getTextContent();
-                }
-            }
-
+            Element target = (Element) doc.getElementsByTagName("target").item(0);
+            targetDbUrl = target.getElementsByTagName("url").item(0).getTextContent();
+            targetDbUser = target.getElementsByTagName("user").item(0).getTextContent();
+            targetDbPassword = target.getElementsByTagName("password").item(0).getTextContent();
         } catch (Exception e) {
-            throw new RuntimeException("Error loading database configurations: " + e.getMessage(), e);
+            System.err.println("Error loading database configuration: " + e.getMessage());
         }
     }
 
@@ -76,7 +56,10 @@ public class DatabaseConfig {
 
     private static Connection createConnection(String url, String user, String password) {
         try {
-            return DriverManager.getConnection(url, user, password);
+            Properties props = new Properties();
+            props.setProperty("user", user);
+            props.setProperty("password", password);
+            return DriverManager.getConnection(url, props);
         } catch (SQLException e) {
             System.err.println("Database connection failed: " + e.getMessage());
             return null;
