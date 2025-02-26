@@ -14,7 +14,7 @@ import java.util.Map;
 
 public class JsonSchemaLoader {
     private static final Logger logger = LoggerFactory.getLogger(JsonSchemaLoader.class);
-    private static final String SCHEMA_FILE = "E:\\DataBridge-Java\\DataBridge-Java\\src\\resources\\schema_mappings.json";
+    private static final String SCHEMA_FILE = "";
 
     public static Map<String, JsonNode> loadSchema() {
         ObjectMapper mapper = new ObjectMapper();
