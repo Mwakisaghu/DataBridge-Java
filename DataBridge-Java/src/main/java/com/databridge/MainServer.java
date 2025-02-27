@@ -12,7 +12,9 @@ import java.util.concurrent.Executors;
 
 public class MainServer {
     private static final Logger logger = LoggerFactory.getLogger(MainServer.class);
-    private static final ExecutorService executorService = Executors.newFixedThreadPool(10); // Thread pool for async execution
+    
+    // Thread pool for async execution
+    private static final ExecutorService executorService = Executors.newFixedThreadPool(10); 
 
     public static void main(String[] args) {
         MigrationController migrationController = new MigrationController();
@@ -61,7 +63,7 @@ public class MainServer {
     }
 
     private static void sendResponse(io.undertow.server.HttpServerExchange exchange, int statusCode, String message) {
-        exchange.getResponseHeaders().put(new HttpString("Access-Control-Allow-Origin"), "*"); // Corrected CORS Header
+        exchange.getResponseHeaders().put(new HttpString("Access-Control-Allow-Origin"), "*");
         exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
         exchange.setStatusCode(statusCode);
         exchange.getResponseSender().send(message);
