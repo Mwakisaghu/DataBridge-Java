@@ -18,11 +18,11 @@ public class DataInserter {
             return;
         }
 
-        // Validate table name to prevent SQL injection
+/*         // Validate table name to prevent SQL injection
         if (!isValidTableName(tableName)) {
             logger.error("Invalid table name: {}", tableName);
             return;
-        }
+        } */
 
         try (Connection conn = DatabaseConfig.getTargetConnection()) {
             conn.setAutoCommit(false); // Enable transaction
@@ -80,7 +80,7 @@ public class DataInserter {
         }
     }
 
-    private static boolean isValidTableName(String tableName) {
+    /* private static boolean isValidTableName(String tableName) {
         return tableName.matches("^[a-zA-Z0-9_]+$");
-    }
+    } */
 }
