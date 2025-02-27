@@ -5,16 +5,15 @@ import com.databridge.service.DataExtractor;
 import com.databridge.service.DataInserter;
 import com.databridge.service.DataTransformer;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class MigrationController {
     private static final Logger logger = LoggerFactory.getLogger(MigrationController.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String migrateTable(String tableName) {
         try {
@@ -25,21 +24,33 @@ public class MigrationController {
                 return "Schema mappings not found!";
             }
 
-            // Get mapping for the requested table
-            JsonNode tableMapping = schema.get(tableName);
+            // Ensure "tables" node exists
+            JsonNode tablesNode = schema.get("tables");
+            if (tablesNode == null) {
+                logger.error("No table mappings found in schema.");
+                return "No table mappings found!";
+            }
+
+            // Ensure the requested table exists
+            JsonNode tableMapping = tablesNode.get(tableName);
             if (tableMapping == null) {
                 logger.error("Table mapping not found for table: {}", tableName);
                 return "Table mapping not found!";
             }
 
-            // Extract table details
+            // Extract source and target table names
             String sourceTable = tableMapping.get("source_table").asText();
             String targetTable = tableMapping.get("target_table").asText();
-            JsonNode transformations = tableMapping.get("transformations");
+            JsonNode columnsNode = tableMapping.get("columns");
 
-            Map<String, String> transformationMap = objectMapper.convertValue(
-                transformations, new com.fasterxml.jackson.core.type.TypeReference<Map<String, String>>() {}
-            );
+            if (columnsNode == null || columnsNode.isEmpty()) {
+                logger.error("No column mappings found for table: {}", tableName);
+                return "No column mappings found!";
+            }
+
+            // Convert JsonNode to Map<String, String>
+            Map<String, String> transformationMap = new HashMap<>();
+            columnsNode.fields().forEachRemaining(entry -> transformationMap.put(entry.getKey(), entry.getValue().asText()));
 
             logger.info("Starting data extraction for source table: {}", sourceTable);
             List<Map<String, Object>> data = DataExtractor.fetchData(sourceTable);
@@ -60,3 +71,4 @@ public class MigrationController {
         }
     }
 }
+
