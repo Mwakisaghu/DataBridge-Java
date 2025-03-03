@@ -47,18 +47,23 @@ public class MigrationController {
                 return "No column mappings found!";
             }
 
-            // Extract transformations from columns
+            // Extract transformations and column lengths from columns
             Map<String, String> transformationMap = new HashMap<>();
+            Map<String, Integer> columnLengths = new HashMap<>();
             columnsNode.fields().forEachRemaining(entry -> {
                 JsonNode columnNode = entry.getValue();
                 String sourceColumn = columnNode.get("source_column").asText();
                 if (columnNode.has("transformation")) {
                     transformationMap.put(sourceColumn, columnNode.get("transformation").asText());
                 }
+                if (columnNode.has("length")) {
+                    columnLengths.put(sourceColumn, columnNode.get("length").asInt());
+                }
             });
 
-            // Log transformations before processing
+            // Log transformations and column lengths before processing
             logger.info("Transformations for table '{}': {}", tableName, objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(transformationMap));
+            logger.info("Column lengths for table '{}': {}", tableName, objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(columnLengths));
 
             logger.info("Starting data extraction for source table: {}", sourceTable);
             List<Map<String, Object>> data = DataExtractor.fetchData(sourceTable);
@@ -77,7 +82,7 @@ public class MigrationController {
                         logger.warn("Encountered null row in data extraction. Skipping...");
                         continue;
                     }
-                    DataTransformer.applyTransformations(row, transformationMap);
+                    DataTransformer.applyTransformations(row, transformationMap, columnLengths);
                 }
             }
 

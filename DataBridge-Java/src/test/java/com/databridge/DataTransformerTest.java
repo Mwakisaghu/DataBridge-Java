@@ -13,12 +13,20 @@ public class DataTransformerTest {
         row.put("dob", "1990-01-01");
 
         Map<String, String> transformations = new HashMap<>();
-        transformations.put("email", "faker.internet.email_address");  // Corrected key
+        transformations.put("email", "faker.internet.email_address");
         transformations.put("phone", "faker.phone_number");
         transformations.put("dob", "faker.date_of_birth");
 
+        Map<String, Integer> columnLengths = new HashMap<>();
+        columnLengths.put("email", 50);
+        columnLengths.put("phone", 15);
+        columnLengths.put("dob", 10);
+
         System.out.println("Before Transformation: " + row);
-        Map<String, Object> transformedRow = DataTransformer.applyTransformations(row, transformations);
+        System.out.println("Column Lengths: " + columnLengths);
+
+        Map<String, Object> transformedRow = DataTransformer.applyTransformations(row, transformations, columnLengths);
+        
         System.out.println("After Transformation: " + transformedRow);
 
         // Ensure executor is closed after transformation
