@@ -92,6 +92,8 @@ public class DataTransformer {
                 return faker.phoneNumber().cellPhone();
             case "faker.job.title":
                 return faker.job().title();
+            case "faker.work.station":
+                return faker.company().name();
             case "faker.date_of_birth":
                 return new SimpleDateFormat("yyyy-MM-dd").format(faker.date().birthday());
             default:

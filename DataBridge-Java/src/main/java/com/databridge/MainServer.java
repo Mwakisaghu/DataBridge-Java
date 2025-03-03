@@ -7,14 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.databridge.controller.MigrationController;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 public class MainServer {
     private static final Logger logger = LoggerFactory.getLogger(MainServer.class);
-    
-    // Thread pool for async execution
-    private static final ExecutorService executorService = Executors.newFixedThreadPool(10); 
 
     public static void main(String[] args) {
         MigrationController migrationController = new MigrationController();
@@ -38,7 +32,8 @@ public class MainServer {
                             String tableName = pathParts[2];
                             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
 
-                            executorService.submit(() -> { // Run migration in a separate thread
+                            // Dispatch to another thread to keep Undertow from closing the request prematurely
+                            exchange.dispatch(() -> {
                                 try {
                                     String result = migrationController.migrateTable(tableName);
                                     sendResponse(exchange, 200, "{\"status\":\"success\",\"message\":\"" + result + "\"}");
@@ -62,13 +57,24 @@ public class MainServer {
         logger.info("Server started on http://localhost:8081");
     }
 
+    /**
+     * Sends an HTTP response with proper error handling.
+     */
     private static void sendResponse(io.undertow.server.HttpServerExchange exchange, int statusCode, String message) {
+        if (exchange.isResponseStarted()) {
+            logger.warn("Attempted to send response, but it was already started.");
+            return;
+        }
+
         exchange.getResponseHeaders().put(new HttpString("Access-Control-Allow-Origin"), "*");
         exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
         exchange.setStatusCode(statusCode);
         exchange.getResponseSender().send(message);
     }
 
+    /**
+     * Handles CORS (Cross-Origin Resource Sharing) preflight requests.
+     */
     private static void handleCors(io.undertow.server.HttpServerExchange exchange) {
         exchange.getResponseHeaders().put(new HttpString("Access-Control-Allow-Origin"), "*");
         exchange.getResponseHeaders().put(new HttpString("Access-Control-Allow-Methods"), "GET, POST, OPTIONS");
