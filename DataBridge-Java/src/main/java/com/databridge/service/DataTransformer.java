@@ -16,7 +16,15 @@ public class DataTransformer {
     private static final Pattern OPTIONS_PATTERN = Pattern.compile("options\\[(.*?)\\]");
     private static final ExecutorService executorService = Executors.newFixedThreadPool(5);
 
+    /**
+     * This method applies transformations to each field in the row based on the provided transformation rules.
+     * 
+     * @param row The data row that needs transformation.
+     * @param transformations The set of transformation rules mapped to field names.
+     * @return The row with applied transformations.
+     */
     public static Map<String, Object> applyTransformations(Map<String, Object> row, Map<String, String> transformations) {
+        // Validate inputs
         if (row == null || transformations == null) {
             logger.warn("Null input provided to applyTransformations");
             return row;
@@ -24,6 +32,7 @@ public class DataTransformer {
 
         logger.debug("Row before transformation: {}", row);
 
+        // Iterate through the transformation rules and apply them to the corresponding fields in the row
         for (Map.Entry<String, String> entry : transformations.entrySet()) {
             String field = entry.getKey();
             String transformation = entry.getValue();
@@ -42,7 +51,7 @@ public class DataTransformer {
                 Object oldValue = row.get(field);
                 logger.info("Original Value for '{}': {}", field, oldValue); // Log the old value
 
-
+                // Apply transformation based on the specified transformation rule
                 String newValue = applyTransformation(transformation, oldValue);
 
                 if (newValue != null) {
@@ -59,14 +68,15 @@ public class DataTransformer {
     }
 
     /**
-     * Applies transformation based on faker rules while considering the old value.
+     * Applies transformation based on the provided transformation rule while considering the old value.
      */
     private static String applyTransformation(String transformation, Object oldValue) {
         if (transformation.startsWith("faker.number.digits:")) {
             int numDigits = Integer.parseInt(transformation.replace("faker.number.digits:", "").trim());
             return faker.number().digits(numDigits);
         }
-        
+
+        // Standard transformations
         switch (transformation) {
             case "faker.name.name":
                 return faker.name().name();
@@ -99,12 +109,14 @@ public class DataTransformer {
      * Handles transformations that require parsing (e.g., options lists, date ranges).
      */
     private static String parseCustomTransformation(String transformation, Object oldValue) {
+        // Handle transformations like options or date ranges
         Matcher optionsMatcher = OPTIONS_PATTERN.matcher(transformation);
         if (optionsMatcher.matches()) {
             String[] options = optionsMatcher.group(1).split(",");
             return options[new Random().nextInt(options.length)].trim();
         }
 
+        // Handle date range-based transformations
         if (transformation.startsWith("faker.date_between")) {
             return Optional.ofNullable(generateFakeDate(transformation))
                     .map(date -> new SimpleDateFormat("yyyy-MM-dd").format(date))
@@ -135,6 +147,9 @@ public class DataTransformer {
         return null;
     }
 
+    /**
+     * Shutdown executor service.
+     */
     public static void shutdownExecutor() {
         logger.info("Shutting down Executor Service...");
         executorService.shutdown();
