@@ -70,7 +70,7 @@ public class DataTransformer {
             int numDigits = Integer.parseInt(transformation.replace("faker.number.digits:", "").trim());
             return faker.number().digits(numDigits);
         }
-
+    
         switch (transformation) {
             case "faker.name.name":
                 return faker.name().name();
@@ -96,10 +96,18 @@ public class DataTransformer {
                 return faker.company().name();
             case "faker.date_of_birth":
                 return new SimpleDateFormat("yyyy-MM-dd").format(faker.date().birthday());
+    
+            case "combine.names":
+                String firstName = faker.name().firstName();
+                String middleName = faker.name().firstName();
+                String otherNames = faker.name().firstName();
+                return firstName + " " + middleName + " " + otherNames;
+    
             default:
                 return parseCustomTransformation(transformation, oldValue);
         }
     }
+    
 
     private static String parseCustomTransformation(String transformation, Object oldValue) {
         Matcher optionsMatcher = OPTIONS_PATTERN.matcher(transformation);
