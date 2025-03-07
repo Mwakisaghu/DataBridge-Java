@@ -29,52 +29,73 @@ public class DataInserter {
             List<String> escapedColumnNames = new ArrayList<>();
             List<String> placeholdersList = new ArrayList<>();
 
-            // Iterate through the columns and prepare for insertion
+            Set<String> targetColumns = getTargetTableColumns(tableName);
+            Map<String, String> columnTypes = getTargetColumnTypes(tableName);
+
             for (String columnName : firstRow.keySet()) {
-                if (!"timestamp".equalsIgnoreCase(columnName)) {
+                if (!"timestamp".equalsIgnoreCase(columnName) && targetColumns.contains(columnName)) {
                     escapedColumnNames.add("[" + columnName + "]");
                     placeholdersList.add("?");
                 }
             }
 
-            // Combine First Name, Middle Name, and Other Names into Name
-            for (Map<String, Object> row : dataList) {
-                String firstName = (String) row.get("First Name");
-                String middleName = (String) row.get("Middle Name");
-                String otherNames = (String) row.get("Other Names");
-
-                // Construct the Name field by combining the names (add null checks)
-                String fullName = (firstName == null ? "" : firstName) + " " +
-                                  (middleName == null ? "" : middleName) + " " +
-                                  (otherNames == null ? "" : otherNames);
-
-                row.put("Name", fullName.trim());  // Store combined name in the "Name" field
+            for (String targetColumn : targetColumns) {
+                if (!firstRow.containsKey(targetColumn)) {
+                    logger.warn("Column '{}' is missing from the source data, setting default value", targetColumn);
+                    escapedColumnNames.add("[" + targetColumn + "]");
+                    placeholdersList.add("?");
+                }
             }
 
             String columnNames = String.join(", ", escapedColumnNames);
             String placeholders = String.join(", ", placeholdersList);
             String sql = "INSERT INTO " + escapedTableName + " (" + columnNames + ") VALUES (" + placeholders + ")";
+            logger.info("Generated SQL: {}", sql);
+
+            if ("CRONUS International Ltd_$Salary Lines".equalsIgnoreCase(tableName)) {
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute("SET IDENTITY_INSERT " + escapedTableName + " ON");
+                }
+            }
 
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 for (Map<String, Object> row : dataList) {
                     int index = 1;
-                    for (String columnName : row.keySet()) {
-                        if ("timestamp".equalsIgnoreCase(columnName)) continue;
-                        Object value = row.get(columnName);
-                        int maxLength = getColumnMaxLength(tableName, columnName);
+                    for (String columnName : escapedColumnNames) {
+                        String columnKey = columnName.replace("[", "").replace("]", "");
+                        String columnType = columnTypes.get(columnKey);
+                        Object columnValue = row.get(columnKey);
 
-                        if (value instanceof String) {
-                            String stringValue = (String) value;
-                            if (maxLength > 0 && stringValue.length() > maxLength) {
-                                logger.warn("Truncating column '{}' from '{}' to '{}' (Max Length: {})", 
-                                    columnName, stringValue, stringValue.substring(0, maxLength), maxLength);
-                                stringValue = stringValue.substring(0, maxLength);
+                        // Ensure 'Actual Date Posted' is never NULL
+                        if ("Actual Date Posted".equalsIgnoreCase(columnKey) && columnValue == null) {
+                            logger.info("Column '{}' is NULL, replacing with current timestamp.", columnKey);
+                            columnValue = new Timestamp(System.currentTimeMillis());
+                        }
+
+                        // Log data before insertion
+                        logger.info("Inserting into column: '{}', Expected Type: '{}', Value: '{}'", 
+                                    columnKey, columnType, columnValue);
+
+                        // Handle Image Column Mismatch
+                        if ("image".equalsIgnoreCase(columnType)) {
+                            if (columnValue instanceof String) {
+                                logger.warn("Column '{}' expects 'image', but received a String. Converting to empty binary data.", columnKey);
+                                pstmt.setBytes(index++, new byte[0]);  // Placeholder for empty binary data
+                            } else if (columnValue instanceof byte[]) {
+                                pstmt.setBytes(index++, (byte[]) columnValue);
+                            } else {
+                                logger.warn("Column '{}' expects 'image', but received '{}'. Setting as NULL.", columnKey, columnValue);
+                                pstmt.setNull(index++, Types.BINARY);
                             }
-                            pstmt.setString(index++, stringValue);
-                        } else if (value instanceof byte[]) {
-                            pstmt.setBytes(index++, (byte[]) value);
-                        } else {
-                            pstmt.setObject(index++, value);
+                        }
+                        // Handle Limit Columns with Default Values
+                        else if (isLimitColumn(columnKey) && columnValue == null) {
+                            logger.info("'{}' is missing, setting default value (1,000,000).", columnKey);
+                            pstmt.setObject(index++, 1000000);
+                        }
+                        // Handle All Other Columns
+                        else {
+                            pstmt.setObject(index++, columnValue);
                         }
                     }
                     pstmt.addBatch();
@@ -85,10 +106,60 @@ public class DataInserter {
             } catch (SQLException e) {
                 conn.rollback();
                 logger.error("Error inserting data into table '{}': {}", tableName, e.getMessage(), e);
+            } finally {
+                if ("CRONUS International Ltd_$Salary Lines".equalsIgnoreCase(tableName)) {
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.execute("SET IDENTITY_INSERT " + escapedTableName + " OFF");
+                    }
+                }
             }
         } catch (SQLException e) {
             logger.error("Database connection error for table '{}': {}", tableName, e.getMessage(), e);
         }
+    }
+
+    private static boolean isLimitColumn(String columnName) {
+        return Set.of(
+                "ATM Withdrawal Limit", "Mobile Withdrawal Limit", "Mobile Daily Withdrawal Limit", 
+                "ATM Daily Withdrawals Limit", "Checkoff Amount", "Salary Amount"
+        ).contains(columnName);
+    }
+
+    private static Set<String> getTargetTableColumns(String tableName) {
+        Set<String> columns = new HashSet<>();
+        String sql = "SELECT COLUMN_NAME, COLUMNPROPERTY(OBJECT_ID(?), COLUMN_NAME, 'IsIdentity') AS IsIdentity " +
+                     "FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ?";
+        
+        try (Connection conn = DatabaseConfig.getTargetConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, tableName);
+            stmt.setString(2, tableName);
+            ResultSet rs = stmt.executeQuery();
+            
+            while (rs.next()) {
+                if (rs.getInt("IsIdentity") != 1) {  // Exclude identity column
+                    columns.add(rs.getString("COLUMN_NAME"));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error fetching columns for table '{}': {}", tableName, e.getMessage(), e);
+        }
+        return columns;
+    }
+
+    private static Map<String, String> getTargetColumnTypes(String tableName) {
+        Map<String, String> columnTypes = new HashMap<>();
+        String sql = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ?";
+        try (Connection conn = DatabaseConfig.getTargetConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, tableName);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                columnTypes.put(rs.getString("COLUMN_NAME"), rs.getString("DATA_TYPE"));
+            }
+        } catch (SQLException e) {
+            logger.error("Error fetching column types for table '{}': {}", tableName, e.getMessage(), e);
+        }
+        return columnTypes;
     }
 
     public static void insertMultipleTables(Map<String, List<Map<String, Object>>> tableData) {
@@ -108,24 +179,7 @@ public class DataInserter {
         }
     }
 
-    private static int getColumnMaxLength(String tableName, String columnName) {
-        String sql = "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?";
-        try (Connection conn = DatabaseConfig.getTargetConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, tableName);
-            stmt.setString(2, columnName);
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("CHARACTER_MAXIMUM_LENGTH");
-            }
-        } catch (SQLException e) {
-            logger.error("Error fetching column length for {}.{}: {}", tableName, columnName, e.getMessage());
-        }
-        return -1;
-    }
-
-    // Method to validate the table name (optional)
     private static boolean isValidTableName(String tableName) {
-        // Allow table names with alphanumeric characters, spaces, _, -, and $
         return tableName.matches("^[a-zA-Z0-9_\\-\\$ ]+$");
     }
 }

@@ -6,12 +6,16 @@ import com.databridge.service.DataInserter;
 import com.databridge.service.DataTransformer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Iterator;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class MigrationController {
     private static final Logger logger = LoggerFactory.getLogger(MigrationController.class);
@@ -96,4 +100,59 @@ public class MigrationController {
             return "Migration failed: " + e.getMessage();
         }
     }
+
+
+    public void migrateAllTables() {
+        try {
+            // Load schema mappings
+            Map<String, JsonNode> schema = JsonSchemaLoader.loadSchema();
+            if (schema.isEmpty()) {
+                logger.error("Schema mappings not found!");
+                return;
+            }
+
+            JsonNode tablesNode = schema.get("tables");
+            if (tablesNode == null) {
+                logger.error("No table mappings found in schema.");
+                return;
+            }
+
+            // Define tables to exclude
+            Set<String> excludedTables = new HashSet<>();
+            excludedTables.add("Members"); // Exclude "Members" table
+
+            // Iterate through table mappings
+            Iterator<Map.Entry<String, JsonNode>> iterator = tablesNode.fields();
+            while (iterator.hasNext()) {
+                Map.Entry<String, JsonNode> entry = iterator.next();
+                String tableName = entry.getKey();
+                JsonNode tableMapping = entry.getValue();
+
+                // Skip excluded tables
+                if (excludedTables.contains(tableName)) {
+                    logger.info("Skipping migration for table: {}", tableName);
+                    continue;
+                }
+
+                // Extract table details
+                String sourceTable = tableMapping.get("source_table").asText();
+                String targetTable = tableMapping.get("target_table").asText();
+
+                logger.info("Starting data extraction for source table: {}", sourceTable);
+                List<Map<String, Object>> data = DataExtractor.fetchData(sourceTable);
+
+                if (data == null || data.isEmpty()) {
+                    logger.warn("No data extracted from '{}'. Skipping migration.", sourceTable);
+                    continue;
+                }
+
+                logger.info("Inserting data into target table: {}", targetTable);
+                DataInserter.insertData(targetTable, data);
+            }
+
+            logger.info("All table insertions (excluding {}) completed.", excludedTables);
+        } catch (Exception e) {
+            logger.error("Insertion of all tables failed: {}", e.getMessage(), e);
+        }
+    }        
 }

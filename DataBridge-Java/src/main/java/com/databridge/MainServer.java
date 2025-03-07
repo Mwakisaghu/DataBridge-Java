@@ -28,11 +28,24 @@ public class MainServer {
 
                         if (path.equals("/")) {
                             sendResponse(exchange, 200, "DataBridge-Java is Running...");
+                        } else if (path.equals("/migrate/all")) {
+                            // Handle migration of all tables
+                            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+
+                            exchange.dispatch(() -> {
+                                try {
+                                    migrationController.migrateAllTables();
+                                    sendResponse(exchange, 200, "{\"status\":\"success\",\"message\":\"All tables migrated successfully.\"}");
+                                } catch (Exception e) {
+                                    logger.error("Migration error: {}", e.getMessage(), e);
+                                    sendResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Migration failed: " + e.getMessage() + "\"}");
+                                }
+                            });
+
                         } else if (pathParts.length == 3 && "migrate".equals(pathParts[1])) {
                             String tableName = pathParts[2];
                             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
 
-                            // Dispatch to another thread to keep Undertow from closing the request prematurely
                             exchange.dispatch(() -> {
                                 try {
                                     String result = migrationController.migrateTable(tableName);
