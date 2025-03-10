@@ -22,11 +22,12 @@ public class DataUpdater {
             StringJoiner updateSummary = new StringJoiner(", ");
 
             for (String table : tables) {
-                String sql = "UPDATE " + table + " " +
-                             "SET " + table + ".name = Members.name, " +
-                             "    " + table + ".current_address = Members.current_address " +
-                             "FROM " + table + " " +
-                             "INNER JOIN Members ON " + table + ".member_no = Members.member_no;";
+                String sql = "UPDATE " + table + " " +  
+                         "SET [Name] = M.[Name], " +
+                         "    [Current Address] = M.[Current Address] " +
+                         "FROM " + table + " " +  
+                         "INNER JOIN [CRONUS International Ltd_$Members$aebc043a-a98e-45f6-8dce-4c8bdabf97fd] M " +
+                         "ON " + table + ".[Member No_] = M.[No_];";
 
                 try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                     int affectedRows = pstmt.executeUpdate();

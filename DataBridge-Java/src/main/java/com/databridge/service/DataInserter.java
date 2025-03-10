@@ -10,6 +10,7 @@ import java.util.concurrent.*;
 
 public class DataInserter {
     private static final Logger logger = LoggerFactory.getLogger(DataInserter.class);
+    @SuppressWarnings("unused")
     private static final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     public static void insertData(String tableName, List<Map<String, Object>> dataList) {
@@ -47,6 +48,20 @@ public class DataInserter {
                 }
             }
 
+            // Combine First Name, Middle Name, and Other Names into Name
+            for (Map<String, Object> row : dataList) {
+                String firstName = (String) row.get("First Name");
+                String middleName = (String) row.get("Middle Name");
+                String otherNames = (String) row.get("Other Names");
+
+                // Construct the Name field by combining the names (add null checks)
+                String fullName = (firstName == null ? "" : firstName) + " " +
+                                  (middleName == null ? "" : middleName) + " " +
+                                  (otherNames == null ? "" : otherNames);
+
+                row.put("Name", fullName.trim());  // Store combined name in the "Name" field
+            }
+
             String columnNames = String.join(", ", escapedColumnNames);
             String placeholders = String.join(", ", placeholdersList);
             String sql = "INSERT INTO " + escapedTableName + " (" + columnNames + ") VALUES (" + placeholders + ")";
@@ -63,7 +78,7 @@ public class DataInserter {
                     int index = 1;
                     for (String columnName : escapedColumnNames) {
                         String columnKey = columnName.replace("[", "").replace("]", "");
-                        String columnType = columnTypes.get(columnKey);
+                        String columnType = columnTypes.getOrDefault(columnKey, "UNKNOWN");
                         Object columnValue = row.get(columnKey);
 
                         // Ensure 'Actual Date Posted' is never NULL
@@ -72,15 +87,21 @@ public class DataInserter {
                             columnValue = new Timestamp(System.currentTimeMillis());
                         }
 
-                        // Log data before insertion
-                        logger.info("Inserting into column: '{}', Expected Type: '{}', Value: '{}'", 
-                                    columnKey, columnType, columnValue);
+                        // Fetch column max length
+                        Integer maxLength = getColumnMaxLength(tableName, columnKey);
+                        if (columnValue instanceof String && maxLength != null && maxLength > 0) {
+                            String valueStr = (String) columnValue;
+                            if (valueStr.length() > maxLength) {
+                                logger.warn("Value for column '{}' exceeds max length ({}), truncating.", columnKey, maxLength);
+                                columnValue = valueStr.substring(0, maxLength);
+                            }
+                        }
 
                         // Handle Image Column Mismatch
                         if ("image".equalsIgnoreCase(columnType)) {
                             if (columnValue instanceof String) {
                                 logger.warn("Column '{}' expects 'image', but received a String. Converting to empty binary data.", columnKey);
-                                pstmt.setBytes(index++, new byte[0]);  // Placeholder for empty binary data
+                                pstmt.setBytes(index++, new byte[0]);
                             } else if (columnValue instanceof byte[]) {
                                 pstmt.setBytes(index++, (byte[]) columnValue);
                             } else {
@@ -120,7 +141,7 @@ public class DataInserter {
 
     private static boolean isLimitColumn(String columnName) {
         return Set.of(
-                "ATM Withdrawal Limit", "Mobile Withdrawal Limit", "Mobile Daily Withdrawal Limit", 
+                "ATM Withdrawal Limit", "Mobile Withdrawal Limit", "Mobile Daily Withdrawal Limit",
                 "ATM Daily Withdrawals Limit", "Checkoff Amount", "Salary Amount"
         ).contains(columnName);
     }
@@ -129,15 +150,13 @@ public class DataInserter {
         Set<String> columns = new HashSet<>();
         String sql = "SELECT COLUMN_NAME, COLUMNPROPERTY(OBJECT_ID(?), COLUMN_NAME, 'IsIdentity') AS IsIdentity " +
                      "FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ?";
-        
         try (Connection conn = DatabaseConfig.getTargetConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, tableName);
             stmt.setString(2, tableName);
             ResultSet rs = stmt.executeQuery();
-            
             while (rs.next()) {
-                if (rs.getInt("IsIdentity") != 1) {  // Exclude identity column
+                if (rs.getInt("IsIdentity") != 1) {
                     columns.add(rs.getString("COLUMN_NAME"));
                 }
             }
@@ -150,7 +169,8 @@ public class DataInserter {
     private static Map<String, String> getTargetColumnTypes(String tableName) {
         Map<String, String> columnTypes = new HashMap<>();
         String sql = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ?";
-        try (Connection conn = DatabaseConfig.getTargetConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConfig.getTargetConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, tableName);
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
@@ -162,21 +182,20 @@ public class DataInserter {
         return columnTypes;
     }
 
-    public static void insertMultipleTables(Map<String, List<Map<String, Object>>> tableData) {
-        List<Future<Void>> futures = new ArrayList<>();
-        for (Map.Entry<String, List<Map<String, Object>>> entry : tableData.entrySet()) {
-            futures.add(executorService.submit(() -> {
-                insertData(entry.getKey(), entry.getValue());
-                return null;
-            }));
-        }
-        for (Future<Void> future : futures) {
-            try {
-                future.get();
-            } catch (InterruptedException | ExecutionException e) {
-                logger.error("Error executing parallel data insertion: {}", e.getMessage(), e);
+    private static int getColumnMaxLength(String tableName, String columnName) {
+        String sql = "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?";
+        try (Connection conn = DatabaseConfig.getTargetConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, tableName);
+            stmt.setString(2, columnName);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("CHARACTER_MAXIMUM_LENGTH");
             }
+        } catch (SQLException e) {
+            logger.error("Error fetching column length for {}.{}: {}", tableName, columnName, e.getMessage());
         }
+        return -1;
     }
 
     private static boolean isValidTableName(String tableName) {
