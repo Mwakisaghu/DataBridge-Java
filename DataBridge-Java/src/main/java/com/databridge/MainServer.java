@@ -3,19 +3,29 @@ package com.databridge;
 import io.undertow.Undertow;
 import io.undertow.util.Headers;
 import io.undertow.util.HttpString;
+import io.undertow.server.HttpServerExchange;
+import io.undertow.server.handlers.BlockingHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.databridge.controller.MigrationController;
+import com.databridge.service.DataUpdater;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 
 public class MainServer {
     private static final Logger logger = LoggerFactory.getLogger(MainServer.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public static void main(String[] args) {
         MigrationController migrationController = new MigrationController();
 
         Undertow server = Undertow.builder()
                 .addHttpListener(8081, "0.0.0.0")
-                .setHandler(exchange -> {
+                .setHandler(new BlockingHandler(exchange -> {
                     try {
                         // Handle CORS Preflight Requests
                         if (exchange.getRequestMethod().equalToString("OPTIONS")) {
@@ -28,10 +38,9 @@ public class MainServer {
 
                         if (path.equals("/")) {
                             sendResponse(exchange, 200, "DataBridge-Java is Running...");
-                        } else if (path.equals("/migrate/all")) {
-                            // Handle migration of all tables
+                        } 
+                        else if (path.equals("/migrate/all")) {
                             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
-
                             exchange.dispatch(() -> {
                                 try {
                                     migrationController.migrateAllTables();
@@ -41,11 +50,10 @@ public class MainServer {
                                     sendResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Migration failed: " + e.getMessage() + "\"}");
                                 }
                             });
-
-                        } else if (pathParts.length == 3 && "migrate".equals(pathParts[1])) {
+                        } 
+                        else if (pathParts.length == 3 && "migrate".equals(pathParts[1])) {
                             String tableName = pathParts[2];
                             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
-
                             exchange.dispatch(() -> {
                                 try {
                                     String result = migrationController.migrateTable(tableName);
@@ -55,25 +63,46 @@ public class MainServer {
                                     sendResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Migration failed: " + e.getMessage() + "\"}");
                                 }
                             });
-
-                        } else {
+                        } 
+                        else if (path.equals("/update/multiple") && exchange.getRequestMethod().equalToString("POST")) {
+                            handleUpdateMultipleTables(exchange);
+                        } 
+                        else {
                             sendResponse(exchange, 404, "{\"status\":\"error\",\"message\":\"Endpoint not found.\"}");
                         }
                     } catch (Exception e) {
                         logger.error("Unhandled error: {}", e.getMessage(), e);
                         sendResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Internal Server Error.\"}");
                     }
-                })
+                }))
                 .build();
 
         server.start();
         logger.info("Server started on http://localhost:8081");
     }
 
-    /**
-     * Sends an HTTP response with proper error handling.
-     */
-    private static void sendResponse(io.undertow.server.HttpServerExchange exchange, int statusCode, String message) {
+    private static void handleUpdateMultipleTables(HttpServerExchange exchange) {
+        exchange.getRequestReceiver().receiveFullBytes((exchange1, message) -> {
+            try {
+                String requestBody = new String(message, StandardCharsets.UTF_8);
+                Map<String, List<String>> requestMap = objectMapper.readValue(requestBody, new TypeReference<Map<String, List<String>>>() {});
+                List<String> tables = requestMap.get("tables");
+
+                if (tables == null || tables.isEmpty()) {
+                    sendResponse(exchange1, 400, "{\"status\":\"error\",\"message\":\"Missing or empty 'tables' parameter.\"}");
+                    return;
+                }
+
+                String result = DataUpdater.updateMultipleTables(tables);
+                sendResponse(exchange1, 200, "{\"status\":\"success\",\"message\":\"" + result + "\"}");
+            } catch (Exception e) {
+                logger.error("Update error: {}", e.getMessage(), e);
+                sendResponse(exchange1, 500, "{\"status\":\"error\",\"message\":\"Update failed: " + e.getMessage() + "\"}");
+            }
+        });
+    }
+
+    private static void sendResponse(HttpServerExchange exchange, int statusCode, String message) {
         if (exchange.isResponseStarted()) {
             logger.warn("Attempted to send response, but it was already started.");
             return;
@@ -85,10 +114,7 @@ public class MainServer {
         exchange.getResponseSender().send(message);
     }
 
-    /**
-     * Handles CORS (Cross-Origin Resource Sharing) preflight requests.
-     */
-    private static void handleCors(io.undertow.server.HttpServerExchange exchange) {
+    private static void handleCors(HttpServerExchange exchange) {
         exchange.getResponseHeaders().put(new HttpString("Access-Control-Allow-Origin"), "*");
         exchange.getResponseHeaders().put(new HttpString("Access-Control-Allow-Methods"), "GET, POST, OPTIONS");
         exchange.getResponseHeaders().put(new HttpString("Access-Control-Allow-Headers"), "Content-Type");
