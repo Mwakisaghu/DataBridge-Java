@@ -23,20 +23,20 @@ public class DataUpdater {
 
             for (String table : tables) {
                 String sql = "UPDATE " + table + " " +  
-                         "SET [Name] = M.[Name], " +
-                         "    [Current Address] = M.[Current Address] " +
-                         "    [Current Address] = M.[Home Address] " +
-                         "    [Phone No_] = M.[Phone No_] " +
-                         "    [Phone No_] = M.[Office Telephone No_] " +
-                         "    [Employer Code] = M.[Employer Code] " +
-                         "    [Payroll_Staff_No] = M.[Payroll_Staff_No] " +
-                         "    [ID No_] = M.[Primary Identification] " +
-                         "    [Passport No_] = M.[Secondary Identification] " +
-                         "    [Transactional Mobile No] = M.[Transactional Mobile Number] " +
-                         "    [Name] = M.[Search Name] " +
-                         "FROM " + table + " " +  
-                         "INNER JOIN [CRONUS International Ltd_$Members$aebc043a-a98e-45f6-8dce-4c8bdabf97fd] M " +
-                         "ON " + table + ".[Member No_] = M.[No_];";
+                "SET [Name] = M.[Name], " +
+                "[Current Address] = M.[Current Address], " +
+                "[Home Address] = M.[Home Address], " +
+                "[Phone No_] = M.[Phone No_], " +
+                "[Employer Code] = M.[Employer Code], " +
+                "[Payroll_Staff No_] = M.[Payroll_Staff No_], " +
+                "[ID No_] = M.[Primary Identification], " +
+                "[Passport No_] = M.[Secondary Identification], " +
+                "[Transactional Mobile No] = M.[Transactional Mobile Number], " +
+                "[Name] = M.[Name 2] " +
+                "FROM " + table + " " +  
+                "INNER JOIN [CRONUS International Ltd_$Members$aebc043a-a98e-45f6-8dce-4c8bdabf97fd] M " +
+                "ON " + table + ".[Member No_] = M.[No_];";
+   
 
                 try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                     int affectedRows = pstmt.executeUpdate();
