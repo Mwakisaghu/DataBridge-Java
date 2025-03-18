@@ -10,8 +10,7 @@ import java.util.concurrent.*;
 
 public class DataInserter {
     private static final Logger logger = LoggerFactory.getLogger(DataInserter.class);
-    @SuppressWarnings("unused")
-    private static final ExecutorService executorService = Executors.newFixedThreadPool(10);
+    private static final ExecutorService executorService = Executors.newFixedThreadPool(10);  // Thread pool for parallelization
 
     public static void insertData(String tableName, List<Map<String, Object>> dataList) {
         if (dataList.isEmpty()) {
@@ -23,10 +22,45 @@ public class DataInserter {
             return;
         }
 
+        // Divide data into chunks for parallel insertion
+        int batchSize = 10;
+        List<List<Map<String, Object>>> dataChunks = chunkData(dataList, batchSize);
+
+        // Execute parallel inserts for each chunk
+        List<Future<Void>> futures = new ArrayList<>();
+        for (List<Map<String, Object>> chunk : dataChunks) {
+            futures.add(executorService.submit(() -> {
+                insertChunk(tableName, chunk);
+                return null;
+            }));
+        }
+
+        // Wait for all threads to complete
+        try {
+            for (Future<Void> future : futures) {
+                // Ensures that the main thread waits for all inserts to finish
+                future.get();  
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            logger.error("Error during parallel data insertion", e);
+        }
+
+        logger.info("Data insertion completed for table: {}", tableName);
+    }
+
+    private static List<List<Map<String, Object>>> chunkData(List<Map<String, Object>> dataList, int batchSize) {
+        List<List<Map<String, Object>>> chunks = new ArrayList<>();
+        for (int i = 0; i < dataList.size(); i += batchSize) {
+            chunks.add(dataList.subList(i, Math.min(i + batchSize, dataList.size())));
+        }
+        return chunks;
+    }
+
+    private static void insertChunk(String tableName, List<Map<String, Object>> chunk) {
         try (Connection conn = DatabaseConfig.getTargetConnection()) {
             conn.setAutoCommit(false);
             String escapedTableName = "[" + tableName + "]";
-            Map<String, Object> firstRow = dataList.get(0);
+            Map<String, Object> firstRow = chunk.get(0);
             List<String> escapedColumnNames = new ArrayList<>();
             List<String> placeholdersList = new ArrayList<>();
 
@@ -49,7 +83,7 @@ public class DataInserter {
             }
 
             // Combine First Name, Middle Name, and Other Names into Name
-            for (Map<String, Object> row : dataList) {
+            for (Map<String, Object> row : chunk) {
                 String firstName = (String) row.get("First Name");
                 String middleName = (String) row.get("Middle Name");
                 String otherNames = (String) row.get("Other Names");
@@ -74,7 +108,7 @@ public class DataInserter {
             }
 
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                for (Map<String, Object> row : dataList) {
+                for (Map<String, Object> row : chunk) {
                     int index = 1;
                     for (String columnName : escapedColumnNames) {
                         String columnKey = columnName.replace("[", "").replace("]", "");
@@ -123,7 +157,7 @@ public class DataInserter {
                 }
                 pstmt.executeBatch();
                 conn.commit();
-                logger.info("Successfully inserted {} rows into table: {}", dataList.size(), tableName);
+                logger.info("Successfully inserted {} rows into table: {}", chunk.size(), tableName);
             } catch (SQLException e) {
                 conn.rollback();
                 logger.error("Error inserting data into table '{}': {}", tableName, e.getMessage(), e);
