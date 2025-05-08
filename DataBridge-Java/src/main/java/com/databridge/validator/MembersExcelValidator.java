@@ -41,6 +41,8 @@ public class MembersExcelValidator {
 
                 // Validate "Other Names" column (index 5)
                 validateOtherNamesColumn(row.getCell(5), row.getRowNum(), noValue);
+
+                validateCurrentAddressColumn(row.getCell(7), row.getRowNum(), noValue);
             }
 
             workbook.close();
@@ -180,5 +182,29 @@ public class MembersExcelValidator {
 
         return true;
     }
+
+    public static boolean validateCurrentAddressColumn(Cell cell, int rowNum, String noValue) {
+        if (cell == null || cell.getCellType() != CellType.STRING) {
+            return true;
+        }
+    
+        String address = cell.getStringCellValue().trim();
+        if (address.isEmpty()) {
+            return true;
+        }
+    
+        if (address.length() < 5 || address.length() > 150) {
+            System.out.println("Invalid 'Current Address' length at row " + rowNum + " with No. value: " + noValue + ". Value: '" + address + "'");
+            return false;
+        }
+    
+        if (!address.matches("^[A-Za-z0-9 ,./'-]+$")) {
+            System.out.println("Invalid characters in 'Current Address' at row " + rowNum + " with No. value: " + noValue + ". Value: '" + address + "'");
+            return false;
+        }
+    
+        return true;
+    }
+    
 }
 
