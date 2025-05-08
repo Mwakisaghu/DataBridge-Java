@@ -39,7 +39,8 @@ public class MembersExcelValidator {
                 // Validate "Last Name" column (index 4)
                 validateLastNameColumn(row.getCell(4), row.getRowNum(), noValue);
 
-
+                // Validate "Other Names" column (index 5)
+                validateOtherNamesColumn(row.getCell(5), row.getRowNum(), noValue);
             }
 
             workbook.close();
@@ -150,6 +151,30 @@ public class MembersExcelValidator {
 
         if (!lastName.matches("^[A-Za-z .'-]+$")) {
             System.out.println("Invalid characters in 'Last Name' at row " + rowNum + " with No. value: " + noValue + ". Last Name: '" + lastName + "'");
+            return false;
+        }
+
+        return true;
+    }
+
+    // Validation method for the "Other Names" column
+    public static boolean validateOtherNamesColumn(Cell cell, int rowNum, String noValue) {
+        if (cell == null || cell.getCellType() != CellType.STRING) {
+            return true;
+        }
+
+        String otherNames = cell.getStringCellValue().trim();
+        if (otherNames.isEmpty()) {
+            return true;
+        }
+
+        if (otherNames.length() < 2 || otherNames.length() > 100) {
+            System.out.println("Invalid 'Other Names' length at row " + rowNum + " with No. value: " + noValue + ". Value: '" + otherNames + "'");
+            return false;
+        }
+
+        if (!otherNames.matches("^[A-Za-z .'-]+$")) {
+            System.out.println("Invalid characters in 'Other Names' at row " + rowNum + " with No. value: " + noValue + ". Value: '" + otherNames + "'");
             return false;
         }
 
