@@ -24,12 +24,14 @@ public class MembersExcelValidator {
             while (rowIterator.hasNext()) {
                 Row row = rowIterator.next();
 
-                // Validate "No." column (first column, index 0)
+                // Validate "No." column (index 0)
                 String noValue = row.getCell(0) != null ? row.getCell(0).getStringCellValue() : "";
-                
-                // Validate "Salutation" column (second column, index 1)
-                if (!validateSalutationColumn(row.getCell(1), row.getRowNum(), noValue)) {
-                }
+
+                // Validate "Salutation" column (index 1)
+                validateSalutationColumn(row.getCell(1), row.getRowNum(), noValue);
+
+                // Validate "Name" column (index 2)
+                validateNameColumn(row.getCell(2), row.getRowNum(), noValue);
             }
 
             workbook.close();
@@ -65,6 +67,32 @@ public class MembersExcelValidator {
             System.out.println("Blank 'Salutation' at row " + rowNum + " with No. value: " + noValue);
             return false;
         }
+        return true;
+    }
+
+    // ✅ Validation method for the "Name" column
+    public static boolean validateNameColumn(Cell cell, int rowNum, String noValue) {
+        if (cell == null || cell.getCellType() != CellType.STRING) {
+            System.out.println("Blank or invalid 'Name' at row " + rowNum + " with No. value: " + noValue);
+            return false;
+        }
+
+        String name = cell.getStringCellValue().trim();
+        if (name.isEmpty()) {
+            System.out.println("Blank 'Name' at row " + rowNum + " with No. value: " + noValue);
+            return false;
+        }
+
+        if (name.length() < 2 || name.length() > 100) {
+            System.out.println("Invalid 'Name' length at row " + rowNum + " with No. value: " + noValue + ". Name: '" + name + "'");
+            return false;
+        }
+
+        if (!name.matches("^[A-Za-z ,.'-]+$")) {
+            System.out.println("Invalid characters in 'Name' at row " + rowNum + " with No. value: " + noValue + ". Name: '" + name + "'");
+            return false;
+        }
+
         return true;
     }
 }
