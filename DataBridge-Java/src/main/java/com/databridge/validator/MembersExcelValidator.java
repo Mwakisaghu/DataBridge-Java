@@ -42,7 +42,13 @@ public class MembersExcelValidator {
                 // Validate "Other Names" column (index 5)
                 validateOtherNamesColumn(row.getCell(5), row.getRowNum(), noValue);
 
-                validateCurrentAddressColumn(row.getCell(7), row.getRowNum(), noValue);
+                validateCurrentAddressColumn(row.getCell(6), row.getRowNum(), noValue);
+
+                validateHomeAddressColumn(row.getCell(7), row.getRowNum(), noValue);
+
+                validatePhoneNoColumn(row.getCell(8), row.getRowNum(), noValue);
+
+                validateBranchCodeColumn(row.getCell(9), row.getRowNum(), noValue);
             }
 
             workbook.close();
@@ -200,6 +206,64 @@ public class MembersExcelValidator {
     
         if (!address.matches("^[A-Za-z0-9 ,./'-]+$")) {
             System.out.println("Invalid characters in 'Current Address' at row " + rowNum + " with No. value: " + noValue + ". Value: '" + address + "'");
+            return false;
+        }
+    
+        return true;
+    }
+
+    public static boolean validateHomeAddressColumn(Cell cell, int rowNum, String noValue) {
+        if (cell == null || cell.getCellType() != CellType.STRING) {
+            return true;
+        }
+    
+        String address = cell.getStringCellValue().trim();
+        if (address.isEmpty()) {
+            return true;
+        }
+    
+        if (address.length() < 5 || address.length() > 150) {
+            System.out.println("Invalid 'Home Address' length at row " + rowNum + " with No. value: " + noValue + ". Value: '" + address + "'");
+            return false;
+        }
+    
+        if (!address.matches("^[A-Za-z0-9 ,./'-]+$")) {
+            System.out.println("Invalid characters in 'Home Address' at row " + rowNum + " with No. value: " + noValue + ". Value: '" + address + "'");
+            return false;
+        }
+    
+        return true;
+    }
+
+    public static boolean validatePhoneNoColumn(Cell cell, int rowNum, String noValue) {
+        if (cell == null || cell.getCellType() != CellType.STRING) {
+            return true;
+        }
+    
+        String phone = cell.getStringCellValue().trim();
+    
+        if (phone.isEmpty()) {
+            return true;
+        }
+    
+        if (!phone.matches("^(?:2547|2541|07|01)\\d{8}$")) {
+            System.out.println("Invalid 'Phone No.' at row " + rowNum + " with No. value: " + noValue + ". Value: '" + phone + "'");
+            return false;
+        }
+    
+        return true;
+    }
+
+    public static boolean validateBranchCodeColumn(Cell cell, int rowNum, String noValue) {
+        if (cell == null || cell.getCellType() != CellType.STRING) {
+            System.out.println("Blank 'Branch Code' at row " + rowNum + " with No. value: " + noValue);
+            return false;
+        }
+    
+        String branchCode = cell.getStringCellValue().trim();
+    
+        if (branchCode.isEmpty()) {
+            System.out.println("Blank 'Branch Code' at row " + rowNum + " with No. value: " + noValue);
             return false;
         }
     
