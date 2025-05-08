@@ -103,6 +103,12 @@
         <version>1.4.14</version>
     </dependency>
 
+    <dependency>
+    <groupId>com.zaxxer</groupId>
+    <artifactId>HikariCP</artifactId>
+    <version>5.0.1</version> <!-- Check for the latest version -->
+    </dependency>
+
   </dependencies>
 
   <build>

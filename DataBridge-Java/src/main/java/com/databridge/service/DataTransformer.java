@@ -71,6 +71,12 @@ public class DataTransformer {
             return faker.number().digits(numDigits);
         }
     
+        if (transformation.startsWith("faker.options:")) {
+            String optionsString = transformation.replace("faker.options:", "").trim();
+            String[] options = optionsString.split(",");
+            return options[new Random().nextInt(options.length)].trim();
+        }
+    
         switch (transformation) {
             case "faker.name.name":
                 return faker.name().name();
@@ -89,13 +95,17 @@ public class DataTransformer {
             case "faker.internet.email_address":
                 return faker.internet().emailAddress();
             case "faker.phone_number":
-                return faker.phoneNumber().cellPhone();
+                return faker.phoneNumber().phoneNumber();
             case "faker.job.title":
                 return faker.job().title();
             case "faker.work.station":
-                return faker.company().name();
+                return faker.address().city();
             case "faker.date_of_birth":
                 return new SimpleDateFormat("yyyy-MM-dd").format(faker.date().birthday());
+            case "faker.nation.nationality":
+                return faker.nation().nationality();
+            case "faker.company.registration_no":
+                return faker.number().digits(8);
     
             case "combine.names":
                 String firstName = faker.name().firstName();
@@ -107,6 +117,7 @@ public class DataTransformer {
                 return parseCustomTransformation(transformation, oldValue);
         }
     }
+    
     
 
     private static String parseCustomTransformation(String transformation, Object oldValue) {

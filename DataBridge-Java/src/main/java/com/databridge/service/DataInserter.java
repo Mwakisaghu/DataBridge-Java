@@ -22,8 +22,7 @@ public class DataInserter {
             return;
         }
 
-        // Divide data into chunks for parallel insertion
-        int batchSize = 10;
+        int batchSize = 100;
         List<List<Map<String, Object>>> dataChunks = chunkData(dataList, batchSize);
 
         // Execute parallel inserts for each chunk
@@ -93,7 +92,7 @@ public class DataInserter {
                                   (middleName == null ? "" : middleName) + " " +
                                   (otherNames == null ? "" : otherNames);
 
-                row.put("Name", fullName.trim());  // Store combined name in the "Name" field
+                row.put("Name", fullName.trim());
             }
 
             String columnNames = String.join(", ", escapedColumnNames);
@@ -146,9 +145,8 @@ public class DataInserter {
                         // Handle Limit Columns with Default Values
                         else if (isLimitColumn(columnKey) && columnValue == null) {
                             logger.info("'{}' is missing, setting default value (1,000,000).", columnKey);
-                            pstmt.setObject(index++, 1000000);
+                            pstmt.setObject(index++, 100000);
                         }
-                        // Handle All Other Columns
                         else {
                             pstmt.setObject(index++, columnValue);
                         }
