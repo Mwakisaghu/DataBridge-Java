@@ -49,6 +49,8 @@ public class MembersExcelValidator {
                 validatePhoneNoColumn(row.getCell(8), row.getRowNum(), noValue);
 
                 validateBranchCodeColumn(row.getCell(9), row.getRowNum(), noValue);
+
+                validateActivityCodeColumn(row.getCell(10), row.getRowNum(), noValue);
             }
 
             workbook.close();
@@ -264,6 +266,27 @@ public class MembersExcelValidator {
     
         if (branchCode.isEmpty()) {
             System.out.println("Blank 'Branch Code' at row " + rowNum + " with No. value: " + noValue);
+            return false;
+        }
+    
+        return true;
+    }
+    
+    public static boolean validateActivityCodeColumn(Cell cell, int rowNum, String noValue) {
+        if (cell == null || cell.getCellType() != CellType.STRING) {
+            System.out.println("Blank or invalid 'Activity Code' at row " + rowNum + " with No. value: " + noValue);
+            return false;
+        }
+    
+        String activityCode = cell.getStringCellValue().trim().toUpperCase();
+    
+        if (activityCode.isEmpty()) {
+            System.out.println("Blank 'Activity Code' at row " + rowNum + " with No. value: " + noValue);
+            return false;
+        }
+    
+        if (!(activityCode.equals("FOSA") || activityCode.equals("BOSA") || activityCode.equals("BUSINESS LOANS"))) {
+            System.out.println("Invalid 'Activity Code' value '" + activityCode + "' at row " + rowNum + " with No. value: " + noValue);
             return false;
         }
     
