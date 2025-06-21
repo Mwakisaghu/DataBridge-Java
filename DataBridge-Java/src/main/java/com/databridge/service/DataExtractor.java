@@ -1,19 +1,34 @@
 package com.databridge.service;
 
-import com.databridge.config.DatabaseConfig;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.*;
-import java.util.*;
-import java.util.concurrent.*;
+import com.databridge.config.DatabaseConfig;
 
 public class DataExtractor {
     private static final Logger logger = LoggerFactory.getLogger(DataExtractor.class);
-    private static final ExecutorService executorService = Executors.newFixedThreadPool(10); // Thread pool for parallel execution
+    // Thread pool for parallel execution
+    private static final ExecutorService executorService = Executors.newFixedThreadPool(10); 
 
     public static List<Map<String, Object>> fetchData(String tableName) {
-        logger.info("Checking table name: '{}'", tableName); // Debugging Log
+        // Debugging Log
+        logger.info("Checking table name: '{}'", tableName);
         
         /* if (!isValidTableName(tableName)) {
             logger.error("Invalid table name: {}", tableName);
@@ -21,7 +36,8 @@ public class DataExtractor {
         } */
         
         String query = "SELECT * FROM [" + tableName.replace("[", "").replace("]", "") + "]";
-        logger.info("Executing query: {}", query); // Log the actual query
+        // Log the actual query
+        logger.info("Executing query: {}", query); 
         
         try (Connection conn = DatabaseConfig.getSourceConnection();
              Statement stmt = conn.createStatement();

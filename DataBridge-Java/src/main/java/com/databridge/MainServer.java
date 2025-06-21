@@ -8,6 +8,7 @@ import io.undertow.server.handlers.BlockingHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.databridge.controller.MigrationController;
+import com.databridge.controller.ValidationController;
 import com.databridge.service.DataUpdater;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -66,7 +67,19 @@ public class MainServer {
                         } 
                         else if (path.equals("/update/multiple") && exchange.getRequestMethod().equalToString("POST")) {
                             handleUpdateMultipleTables(exchange);
-                        } 
+                        }
+                        else if (path.equals("/validate/members") && exchange.getRequestMethod().equalToString("POST")) {
+                            exchange.getRequestReceiver().receiveFullBytes((ex, data) -> {
+                                try {
+                                    ValidationController validationController = new ValidationController();
+                                    String resultJson = validationController.validateExcel(new java.io.ByteArrayInputStream(data));
+                                    sendResponse(ex, 200, resultJson);
+                                } catch (Exception e) {
+                                    logger.error("Validation error: {}", e.getMessage(), e);
+                                    sendResponse(ex, 500, "{\"status\":\"error\",\"message\":\"Validation failed: " + e.getMessage() + "\"}");
+                                }
+                            });
+                        }
                         else {
                             sendResponse(exchange, 404, "{\"status\":\"error\",\"message\":\"Endpoint not found.\"}");
                         }

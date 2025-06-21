@@ -1,146 +1,190 @@
 {
-    "tables": {
-      "Members": {
-        "source_table": "members",
-        "target_table": "members",
-        "columns": {
-          "No_": {
-            "source_column": "No_",
-            "target_column": "No_",
-            "transformation": "faker.number.digits:8"
-          },
-          "Name": {
-            "source_column": "Name",
-            "target_column": "Name",
-            "transformation": "faker.name.full_name"
-          },
-          "First Name": {
-            "source_column": "First Name",
-            "target_column": "First Name",
-            "transformation": "faker.name.first_name"
-          },
-          "Middle Name": {
-            "source_column": "Middle Name",
-            "target_column": "Middle Name",
-            "transformation": "faker.name.first_name"
-          },
-          "Other Names": {
-            "source_column": "Other Names",
-            "target_column": "Other Names",
-            "transformation": "faker.name.first_name"
-          },
-          "Current Address": {
-            "source_column": "Current Address",
-            "target_column": "Current Address",
-            "transformation": "faker.address.full_address"
-          },
-          "Home Address": {
-            "source_column": "Home Address",
-            "target_column": "Home Address",
-            "transformation": "faker.address.full_address"
-          },
-          "Phone No_": {
-            "source_column": "Phone No_",
-            "target_column": "Phone No_",
-            "transformation": "faker.phone_number"
-          },
-          "Office Telephone No_": {
-            "source_column": "Office Telephone No_",
-            "target_column": "Office Telephone No_",
-            "transformation": "faker.phone_number"
-          },
-          "Nationality": {
-            "source_column": "Nationality",
-            "target_column": "Nationality",
-            "transformation": "faker.nation.nationality"
-          },
-          "E-Mail": {
-            "source_column": "E-Mail",
-            "target_column": "E-Mail",
-            "transformation": "faker.internet.email_address"
-          },
-          "Employer Code": {
-            "source_column": "Employer Code",
-            "target_column": "Employer Code",
-            "transformation": "faker.number.digits:6"
-          },
-          "County": {
-            "source_column": "County",
-            "target_column": "County",
-            "transformation": "faker.address.state"
-          },
-          "Country Of Operation": {
-            "source_column": "Country Of Operation",
-            "target_column": "Country Of Operation",
-            "transformation": "faker.address.country"
-          },
-          "Employment Designation": {
-            "source_column": "Employment Designation",
-            "target_column": "Employment Designation",
-            "transformation": "faker.job.title"
-          },
-          "City": {
-            "source_column": "City",
-            "target_column": "City",
-            "transformation": "faker.address.city"
-          },
-          "Payroll_Staff No_": {
-            "source_column": "Payroll_Staff No_",
-            "target_column": "Payroll_Staff No_",
-            "transformation": "faker.number.digits:8"
-          },
-          "Marital Status": {
-            "source_column": "Marital Status",
-            "target_column": "Marital Status",
-            "transformation": "faker.options:Single,Married,Divorced,Widowed"
-          },
-          "P_I_N Number": {
-            "source_column": "P_I_N Number",
-            "target_column": "P_I_N Number",
-            "transformation": "faker.number.digits:10"
-          },
-          "Primary Identification Type": {
-            "source_column": "Primary Identification Type",
-            "target_column": "Primary Identification Type",
-            "transformation": "faker.options:National ID,Passport,Driving License"
-          },
-          "Secondary Identification Type": {
-            "source_column": "Secondary Identification Type",
-            "target_column": "Secondary Identification Type",
-            "transformation": "faker.options:National ID,Passport,Driving License"
-          },
-          "Primary Identification": {
-            "source_column": "Primary Identification",
-            "target_column": "Primary Identification",
-            "transformation": "faker.number.digits:12"
-          },
-          "Secondary Identification": {
-            "source_column": "Secondary Identification",
-            "target_column": "Secondary Identification",
-            "transformation": "faker.number.digits:12"
-          },
-          "Recruited By Name": {
-            "source_column": "Recruited By Name",
-            "target_column": "Recruited By Name",
-            "transformation": "faker.name.full_name"
-          },
-          "Transactional Mobile Number": {
-            "source_column": "Transactional Mobile Number",
-            "target_column": "Transactional Mobile Number",
-            "transformation": "faker.phone_number"
-          },
-          "Office E--Mail": {
-            "source_column": "Office E--Mail",
-            "target_column": "Office E--Mail",
-            "transformation": "faker.internet.email_address"
-          },
-          "Company Registration No_": {
-            "source_column": "Company Registration No_",
-            "target_column": "Company Registration No_",
-            "transformation": "faker.number.digits:8"
-          }
+  "tables": {
+    "Members": {
+      "source_table": "KENPIPE$Members$aebc043a-a98e-45f6-8dce-4c8bdabf97fd",
+      "target_table": "CRONUS International Ltd_$Members$aebc043a-a98e-45f6-8dce-4c8bdabf97fd",
+      "columns": {
+        "Name": {
+          "source_column": "Name",
+          "target_column": "Name",
+          "transformation": "combine.names",
+          "max_length": 80
+        },
+        "First Name": {
+          "source_column": "First Name",
+          "target_column": "First Name",
+          "transformation": "faker.name.first_name",
+          "max_length": 50
+        },
+        "Middle Name": {
+          "source_column": "Middle Name",
+          "target_column": "Middle Name",
+          "transformation": "faker.name.first_name",
+          "max_length": 50
+        },
+        "Other Names": {
+          "source_column": "Other Names",
+          "target_column": "Other Names",
+          "transformation": "faker.name.first_name",
+          "max_length": 50
+        },
+        "Current Address": {
+          "source_column": "Current Address",
+          "target_column": "Current Address",
+          "transformation": "faker.address.full_address",
+          "max_length": 50
+        },
+        "Home Address": {
+          "source_column": "Home Address",
+          "target_column": "Home Address",
+          "transformation": "faker.address.full_address",
+          "max_length": 50
+        },
+        "Phone No_": {
+          "source_column": "Phone No_",
+          "target_column": "Phone No_",
+          "transformation": "faker.phone_number",
+          "max_length": 80
+        },
+        "Office Telephone No_": {
+          "source_column": "Office Telephone No_",
+          "target_column": "Office Telephone No_",
+          "transformation": "faker.phone_number",
+          "max_length": 50
+        },
+        "Nationality": {
+          "source_column": "Nationality",
+          "target_column": "Nationality",
+          "transformation": "faker.nation.nationality",
+          "max_length": 10
+        },
+        "E-Mail": {
+          "source_column": "E-Mail",
+          "target_column": "E-Mail",
+          "transformation": "faker.internet.email_address",
+          "max_length": 80
+        },
+        "Employer Code": {
+          "source_column": "Employer Code",
+          "target_column": "Employer Code",
+          "transformation": "faker.number.digits:6",
+          "max_length": 6
+        },
+        "County": {
+          "source_column": "County",
+          "target_column": "County",
+          "transformation": "faker.address.state",
+          "max_length": 30
+        },
+        "Country Of Operation": {
+          "source_column": "Country Of Operation",
+          "target_column": "Country Of Operation",
+          "transformation": "faker.address.country",
+          "max_length": 10
+        },
+        "Employment Designation": {
+          "source_column": "Employment Designation",
+          "target_column": "Employment Designation",
+          "transformation": "faker.job.title",
+          "max_length": 50
+        },
+        "City": {
+          "source_column": "City",
+          "target_column": "City",
+          "transformation": "faker.address.city",
+          "max_length": 30
+        },
+        "Payroll_Staff No_": {
+          "source_column": "Payroll_Staff No_",
+          "target_column": "Payroll_Staff No_",
+          "transformation": "faker.number.digits:8",
+          "max_length": 20
+        },
+        "Marital Status": {
+          "source_column": "Marital Status",
+          "target_column": "Marital Status",
+          "transformation": "faker.options:Single,Married,Divorced,Widowed",
+          "max_length": 10
+        },
+        "P_I_N Number": {
+          "source_column": "P_I_N Number",
+          "target_column": "P_I_N Number",
+          "transformation": "faker.number.digits:10",
+          "max_length": 10
+        },
+        "Primary Identification Type": {
+          "source_column": "Primary Identification Type",
+          "target_column": "Primary Identification Type",
+          "transformation": "faker.options:National ID,Passport,Driving License",
+          "max_length": 20
+        },
+        "Secondary Identification Type": {
+          "source_column": "Secondary Identification Type",
+          "target_column": "Secondary Identification Type",
+          "transformation": "faker.options:National ID,Passport,Driving License",
+          "max_length": 20
+        },
+        "Primary Identification": {
+          "source_column": "Primary Identification",
+          "target_column": "Primary Identification",
+          "transformation": "faker.number.digits:12",
+          "max_length": 12
+        },
+        "Secondary Identification": {
+          "source_column": "Secondary Identification",
+          "target_column": "Secondary Identification",
+          "transformation": "faker.number.digits:12",
+          "max_length": 12
+        },
+        "Recruited By Name": {
+          "source_column": "Recruited By Name",
+          "target_column": "Recruited By Name",
+          "transformation": "faker.name.full_name",
+          "max_length": 100
+        },
+        "Transactional Mobile Number": {
+          "source_column": "Transactional Mobile Number",
+          "target_column": "Transactional Mobile Number",
+          "transformation": "faker.phone_number",
+          "max_length": 20
+        },
+        "Office E--Mail": {
+          "source_column": "Office E--Mail",
+          "target_column": "Office E--Mail",
+          "transformation": "faker.internet.email_address",
+          "max_length": 80
+        },
+        "Company Registration No_": {
+          "source_column": "Company Registration No_",
+          "target_column": "Company Registration No_",
+          "transformation": "faker.number.digits:8",
+          "max_length": 30
+        },
+        "Work Station": {
+          "source_column" : "Work Station",
+          "target_column": "Work Station"
         }
       }
+    },
+    "Savings Accounts": {
+      "source_table": "KENPIPE$Savings Accounts$aebc043a-a98e-45f6-8dce-4c8bdabf97fd",
+      "target_table": "CRONUS International Ltd_$Savings Accounts$aebc043a-a98e-45f6-8dce-4c8bdabf97fd",
+      "skip_transformations": true
+    },
+    "Loans": {
+      "source_table": "KENPIPE$Loans$aebc043a-a98e-45f6-8dce-4c8bdabf97fd",
+      "target_table": "CRONUS International Ltd_$Loans$aebc043a-a98e-45f6-8dce-4c8bdabf97fd",
+      "skip_transformations": true
+    },
+    "HR Employees": {
+      "source_table": "KENPIPE$HR Employees$aebc043a-a98e-45f6-8dce-4c8bdabf97fd",
+      "target_table": "CRONUS International Ltd_$HR Employees$aebc043a-a98e-45f6-8dce-4c8bdabf97fd",
+      "skip_transformations": true
+    },
+    "Salary Lines": {
+      "source_table": "KENPIPE$Salary Lines$aebc043a-a98e-45f6-8dce-4c8bdabf97fd",
+      "target_table": "CRONUS International Ltd_$Salary Lines$aebc043a-a98e-45f6-8dce-4c8bdabf97fd",
+      "skip_transformations": true
     }
   }
-  
+}

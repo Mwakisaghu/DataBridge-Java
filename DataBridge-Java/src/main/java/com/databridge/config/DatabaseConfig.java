@@ -22,7 +22,7 @@ public class DatabaseConfig {
 
     private static void loadConfig() {
         try {
-            File file = new File("");
+            File file = new File("DataBridge-Java\\\\\\\\src\\\\\\\\resources\\\\\\\\config.xml");
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(new FileInputStream(file));
