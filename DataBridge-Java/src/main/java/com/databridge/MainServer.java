@@ -39,8 +39,7 @@ public class MainServer {
 
                         if (path.equals("/")) {
                             sendResponse(exchange, 200, "DataBridge-Java is Running...");
-                        } 
-                        else if (path.equals("/migrate/all")) {
+                        } else if (path.equals("/migrate/all")) {
                             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                             exchange.dispatch(() -> {
                                 try {
@@ -51,8 +50,7 @@ public class MainServer {
                                     sendResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Migration failed: " + e.getMessage() + "\"}");
                                 }
                             });
-                        } 
-                        else if (pathParts.length == 3 && "migrate".equals(pathParts[1])) {
+                        } else if (pathParts.length == 3 && "migrate".equals(pathParts[1])) {
                             String tableName = pathParts[2];
                             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                             exchange.dispatch(() -> {
@@ -64,11 +62,9 @@ public class MainServer {
                                     sendResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Migration failed: " + e.getMessage() + "\"}");
                                 }
                             });
-                        } 
-                        else if (path.equals("/update/multiple") && exchange.getRequestMethod().equalToString("POST")) {
+                        } else if (path.equals("/update/multiple") && exchange.getRequestMethod().equalToString("POST")) {
                             handleUpdateMultipleTables(exchange);
-                        }
-                        else if (path.equals("/validate/members") && exchange.getRequestMethod().equalToString("POST")) {
+                        } else if (path.equals("/validate/members") && exchange.getRequestMethod().equalToString("POST")) {
                             exchange.getRequestReceiver().receiveFullBytes((ex, data) -> {
                                 try {
                                     ValidationController validationController = new ValidationController();
@@ -79,8 +75,18 @@ public class MainServer {
                                     sendResponse(ex, 500, "{\"status\":\"error\",\"message\":\"Validation failed: " + e.getMessage() + "\"}");
                                 }
                             });
-                        }
-                        else {
+                        } else if (path.equals("/validate/chart-of-accounts") && exchange.getRequestMethod().equalToString("POST")) {
+                            exchange.getRequestReceiver().receiveFullBytes((ex, data) -> {
+                                try {
+                                    ValidationController validationController = new ValidationController();
+                                    String resultJson = validationController.validateChartOfAccounts(new java.io.ByteArrayInputStream(data));
+                                    sendResponse(ex, 200, resultJson);
+                                } catch (Exception e) {
+                                    logger.error("Chart of Accounts validation error: {}", e.getMessage(), e);
+                                    sendResponse(ex, 500, "{\"status\":\"error\",\"message\":\"Validation failed: " + e.getMessage() + "\"}");
+                                }
+                            });
+                        } else {
                             sendResponse(exchange, 404, "{\"status\":\"error\",\"message\":\"Endpoint not found.\"}");
                         }
                     } catch (Exception e) {
