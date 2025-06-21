@@ -1,6 +1,7 @@
 package com.databridge.controller;
 
 import com.databridge.validator.MembersExcelValidator;
+import com.databridge.validator.ChartOfAccountsExcelValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.InputStream;
@@ -18,25 +19,53 @@ public class ValidationController {
 
             if (errors.isEmpty()) {
                 return objectMapper.writeValueAsString(Map.of(
-                    "status", "success",
-                    "message", "No validation errors."
+                        "status", "success",
+                        "message", "No validation errors."
                 ));
             } else {
                 return objectMapper.writeValueAsString(Map.of(
-                    "status", "error",
-                    "message", "Validation failed.",
-                    "errors", errors
+                        "status", "error",
+                        "message", "Validation failed.",
+                        "errors", errors
                 ));
             }
         } catch (Exception e) {
             try {
                 return objectMapper.writeValueAsString(Map.of(
-                    "status", "error",
-                    "message", "Validation exception: " + e.getMessage()
+                        "status", "error",
+                        "message", "Validation exception: " + e.getMessage()
                 ));
             } catch (Exception serializationException) {
-                // Fallback in case of JSON failure
                 return "{\"status\":\"error\",\"message\":\"Unknown error during validation.\"}";
+            }
+        }
+    }
+
+    public String validateChartOfAccounts(InputStream inputStream) {
+        try {
+            ChartOfAccountsExcelValidator validator = new ChartOfAccountsExcelValidator();
+            Map<Integer, List<String>> errors = validator.validate(inputStream);
+
+            if (errors.isEmpty()) {
+                return objectMapper.writeValueAsString(Map.of(
+                        "status", "success",
+                        "message", "No validation errors in Chart of Accounts."
+                ));
+            } else {
+                return objectMapper.writeValueAsString(Map.of(
+                        "status", "error",
+                        "message", "Chart of Accounts validation failed.",
+                        "errors", errors
+                ));
+            }
+        } catch (Exception e) {
+            try {
+                return objectMapper.writeValueAsString(Map.of(
+                        "status", "error",
+                        "message", "Chart of Accounts validation exception: " + e.getMessage()
+                ));
+            } catch (Exception serializationException) {
+                return "{\"status\":\"error\",\"message\":\"Unknown error during Chart of Accounts validation.\"}";
             }
         }
     }
