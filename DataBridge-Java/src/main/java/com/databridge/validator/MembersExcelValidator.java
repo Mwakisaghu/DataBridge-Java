@@ -5,6 +5,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.databridge.util.LogStorage;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -205,6 +206,8 @@ public class MembersExcelValidator {
 
     private static void logError(int rowNum, String message) {
         rowErrors.computeIfAbsent(rowNum, k -> new ArrayList<>()).add(message);
+
+        LogStorage.addLog("error", "Row " + rowNum + ": " + message);
     }
 
     // Validation methods
