@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import com.databridge.controller.MigrationController;
 import com.databridge.controller.ValidationController;
 import com.databridge.service.DataUpdater;
+import com.databridge.util.LogStorage;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -86,7 +87,17 @@ public class MainServer {
                                     sendResponse(ex, 500, "{\"status\":\"error\",\"message\":\"Validation failed: " + e.getMessage() + "\"}");
                                 }
                             });
-                        } else {
+                            
+                        } else if (path.equals("/logs") && exchange.getRequestMethod().equalToString("GET")) {
+                            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                                List<Map<String, String>> logList = LogStorage.getLogs();
+                                sendResponse(exchange, 200, objectMapper.writeValueAsString(logList));
+                            }
+                            else if (path.equals("/logs/clear") && exchange.getRequestMethod().equalToString("POST")) {
+                                LogStorage.clearLogs();
+                                sendResponse(exchange, 200, "{\"status\":\"success\",\"message\":\"Logs cleared successfully\"}");
+                        }
+                        else {
                             sendResponse(exchange, 404, "{\"status\":\"error\",\"message\":\"Endpoint not found.\"}");
                         }
                     } catch (Exception e) {
