@@ -5,6 +5,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.databridge.util.LogStorage;
+
 import java.io.InputStream;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -177,6 +179,8 @@ public class ChartOfAccountsExcelValidator {
 
     private void logError(int rowNum, String message) {
         rowErrors.computeIfAbsent(rowNum, k -> new ArrayList<>()).add(message);
+
+        LogStorage.addLog("error", "Row " + rowNum + ": " + message);
     }
 
     private void reportResults() {
