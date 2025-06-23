@@ -71,7 +71,7 @@ public class NomineeExcelValidator {
                 }
             }
 
-            // ✅ Allocation total check
+            // Allocation total check
             double total = allocations.stream().mapToDouble(Double::doubleValue).sum();
             if (total > 100.0) {
                 logError(0, "'Allocation' total exceeds 100%: " + total);

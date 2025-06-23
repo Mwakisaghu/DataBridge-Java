@@ -3,6 +3,7 @@ package com.databridge.controller;
 import com.databridge.util.LogStorage;
 import com.databridge.validator.MembersExcelValidator;
 import com.databridge.validator.ChartOfAccountsExcelValidator;
+import com.databridge.validator.NomineeExcelValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.InputStream;
@@ -79,6 +80,41 @@ public class ValidationController {
             } catch (Exception serializationException) {
                 LogStorage.addLog("error", "Serialization error after Chart of Accounts validation failure");
                 return "{\"status\":\"error\",\"message\":\"Unknown error during Chart of Accounts validation.\"}";
+            }
+        }
+    }
+
+    public String validateNominees(InputStream inputStream) {
+        LogStorage.addLog("info", "Started validating nominee/beneficiary file");
+
+        try {
+            NomineeExcelValidator validator = new NomineeExcelValidator();
+            Map<Integer, List<String>> errors = validator.validate(inputStream);
+
+            if (errors.isEmpty()) {
+                LogStorage.addLog("info", "Nominee file validation passed with no errors");
+                return objectMapper.writeValueAsString(Map.of(
+                        "status", "success",
+                        "message", "No validation errors in nominee file."
+                ));
+            } else {
+                LogStorage.addLog("warning", "Nominee file validation failed with errors");
+                return objectMapper.writeValueAsString(Map.of(
+                        "status", "error",
+                        "message", "Nominee file validation failed.",
+                        "errors", errors
+                ));
+            }
+        } catch (Exception e) {
+            LogStorage.addLog("error", "Exception during nominee file validation: " + e.getMessage());
+            try {
+                return objectMapper.writeValueAsString(Map.of(
+                        "status", "error",
+                        "message", "Nominee file validation exception: " + e.getMessage()
+                ));
+            } catch (Exception serializationException) {
+                LogStorage.addLog("error", "Serialization error after nominee validation failure");
+                return "{\"status\":\"error\",\"message\":\"Unknown error during nominee file validation.\"}";
             }
         }
     }
