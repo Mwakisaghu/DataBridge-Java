@@ -133,6 +133,18 @@ public class MainServer {
                                 }
                             });
                         }
+                        else if (path.equals("/validate/bank-accounts") && exchange.getRequestMethod().equalToString("POST")) {
+                            exchange.getRequestReceiver().receiveFullBytes((ex, data) -> {
+                                try {
+                                    ValidationController validationController = new ValidationController();
+                                    String resultJson = validationController.validateBankAccounts(new java.io.ByteArrayInputStream(data));
+                                    sendResponse(ex, 200, resultJson);
+                                } catch (Exception e) {
+                                    logger.error("Bank account validation error: {}", e.getMessage(), e);
+                                    sendResponse(ex, 500, "{\"status\":\"error\",\"message\":\"Validation failed: " + e.getMessage() + "\"}");
+                                }
+                            });
+                        }
                         else {
                             sendResponse(exchange, 404, "{\"status\":\"error\",\"message\":\"Endpoint not found.\"}");
                         }

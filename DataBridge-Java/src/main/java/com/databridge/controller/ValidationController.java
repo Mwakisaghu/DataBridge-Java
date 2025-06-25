@@ -2,6 +2,7 @@ package com.databridge.controller;
 
 import com.databridge.util.LogStorage;
 import com.databridge.validator.MembersExcelValidator;
+import com.databridge.validator.BankAccountExcelValidator;
 import com.databridge.validator.ChartOfAccountsExcelValidator;
 import com.databridge.validator.CustomerExcelValidator;
 import com.databridge.validator.NomineeExcelValidator;
@@ -186,6 +187,41 @@ public class ValidationController {
             ));
         } catch (Exception serializationException) {
             return "{\"status\":\"error\",\"message\":\"Unknown error during vendor validation.\"}";
+            }
+        }
+    }
+
+    public String validateBankAccounts(InputStream inputStream) {
+    LogStorage.addLog("info", "Started validating bank account file");
+
+    try {
+        BankAccountExcelValidator validator = new BankAccountExcelValidator();
+        Map<Integer, List<String>> errors = validator.validate(inputStream);
+
+        if (errors.isEmpty()) {
+            LogStorage.addLog("info", "Bank account file validation passed with no errors");
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "success",
+                    "message", "No validation errors in bank account file."
+            ));
+        } else {
+            LogStorage.addLog("warning", "Bank account file validation failed with errors");
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "error",
+                    "message", "Bank account validation failed.",
+                    "errors", errors
+            ));
+        }
+    } catch (Exception e) {
+        LogStorage.addLog("error", "Exception during bank account validation: " + e.getMessage());
+        try {
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "error",
+                    "message", "Bank account validation exception: " + e.getMessage()
+            ));
+        } catch (Exception serializationException) {
+            LogStorage.addLog("error", "Serialization error after bank account validation failure");
+            return "{\"status\":\"error\",\"message\":\"Unknown error during bank account validation.\"}";
             }
         }
     }
