@@ -20,7 +20,16 @@ public class FixedAssetExcelValidator {
 
     private static final Set<String> VALID_ACTIVITY_CODES = Set.of("FOSA", "BOSA");
     private static final Set<String> VALID_RESPONSIBILITY_CENTERS = Set.of("FOSA", "BOSA", "HQ", "ICT", "FINANCE", "HR", "PROC");
-    private static final Set<String> VALID_STATUSES = Set.of("NEW", "PENDING APPROVAL", "APPROVED", "DISPOSED");
+
+    private static final Set<String> VALID_VEHICLE_STATUSES = Set.of("Active", "Inactive");
+    private static final Set<String> VALID_ASSET_STATUSES = Set.of("Good working condition", "Obsolete", "Broken");
+    private static final Set<String> VALID_FIXED_ASSET_STATUSES = Set.of(
+            "Open", "Approved", "Pending Approval", "Deffered", "Cancelled", "Rejected", "Closed"
+    );
+    private static final Set<String> KNOWN_VEHICLE_MAKES = Set.of(
+            "Toyota", "Nissan", "Mitsubishi", "Isuzu", "Mercedez Benz", "BMW", "Volkswagen", "Ford"
+    );
+
     private static final Set<String> VALID_BOOLEAN_TEXT = Set.of("true", "false", "");
 
     public Map<Integer, List<String>> validate(InputStream inputStream) throws Exception {
@@ -31,7 +40,7 @@ public class FixedAssetExcelValidator {
             Sheet sheet = workbook.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.iterator();
 
-            if (rowIterator.hasNext()) rowIterator.next();
+            if (rowIterator.hasNext()) rowIterator.next(); // Skip header
 
             while (rowIterator.hasNext()) {
                 Row row = rowIterator.next();
@@ -50,13 +59,13 @@ public class FixedAssetExcelValidator {
                 validateOptionalAlphanumeric(row.getCell(8), rowNum, "Vehicle Registration No.");
                 validateOptionalAlphanumeric(row.getCell(9), rowNum, "Registration No.");
                 validateResponsibilityCenter(row.getCell(10), rowNum);
-                validateOptionalAlphanumeric(row.getCell(11), rowNum, "Vehicle Status");
+                validateVehicleStatus(row.getCell(11), rowNum);
                 validateStatus(row.getCell(12), rowNum);
-                validateOptionalAlphanumeric(row.getCell(13), rowNum, "Vehicle Make");
+                validateVehicleMake(row.getCell(13), rowNum);
                 validateOptionalAlphanumeric(row.getCell(14), rowNum, "Asset Tag");
                 validateOptionalAlphanumeric(row.getCell(15), rowNum, "REG No.");
                 validateOptionalAlphanumeric(row.getCell(16), rowNum, "Responsible Employee");
-                validateOptionalAlphanumeric(row.getCell(17), rowNum, "Asset Status");
+                validateAssetStatus(row.getCell(17), rowNum);
                 validateMarkedForDisposal(row.getCell(18), rowNum);
             }
 
@@ -114,10 +123,33 @@ public class FixedAssetExcelValidator {
         }
     }
 
+    private void validateVehicleStatus(Cell cell, int rowNum) {
+        String value = getStringValue(cell);
+        if (!value.isEmpty() && !VALID_VEHICLE_STATUSES.contains(value)) {
+            logError(rowNum, "'Vehicle Status' must be 'Active' or 'Inactive'. Found: " + value);
+        }
+    }
+
     private void validateStatus(Cell cell, int rowNum) {
         String value = getStringValue(cell);
-        if (!value.isEmpty() && !VALID_STATUSES.contains(value.toUpperCase())) {
-            logError(rowNum, "'Status' is invalid. Allowed: " + VALID_STATUSES);
+        if (!value.isEmpty() && !VALID_FIXED_ASSET_STATUSES.contains(value)) {
+            logError(rowNum, "'Status' is invalid. Allowed: " + VALID_FIXED_ASSET_STATUSES);
+        }
+    }
+
+    private void validateVehicleMake(Cell cell, int rowNum) {
+        String value = getStringValue(cell);
+        if (!value.isEmpty() && !ALPHANUMERIC_PATTERN.matcher(value).matches()) {
+            logError(rowNum, "'Vehicle Make' contains invalid characters.");
+        } else if (!value.isEmpty() && !KNOWN_VEHICLE_MAKES.contains(value)) {
+            logger.warn("Row {}: 'Vehicle Make' [{}] is not in the known list but allowed.", rowNum, value);
+        }
+    }
+
+    private void validateAssetStatus(Cell cell, int rowNum) {
+        String value = getStringValue(cell);
+        if (!value.isEmpty() && !VALID_ASSET_STATUSES.contains(value)) {
+            logError(rowNum, "'Asset Status' is invalid. Allowed: " + VALID_ASSET_STATUSES);
         }
     }
 
