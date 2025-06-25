@@ -5,6 +5,7 @@ import com.databridge.validator.MembersExcelValidator;
 import com.databridge.validator.ChartOfAccountsExcelValidator;
 import com.databridge.validator.CustomerExcelValidator;
 import com.databridge.validator.NomineeExcelValidator;
+import com.databridge.validator.VendorExcelValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.InputStream;
@@ -151,6 +152,40 @@ public class ValidationController {
         } catch (Exception serializationException) {
             LogStorage.addLog("error", "Serialization error after customer validation failure");
             return "{\"status\":\"error\",\"message\":\"Unknown error during customer data validation.\"}";
+            }
+        }
+    }
+
+    public String validateVendors(InputStream inputStream) {
+    LogStorage.addLog("info", "Started validating vendor static data file");
+
+    try {
+        VendorExcelValidator validator = new VendorExcelValidator();
+        Map<Integer, List<String>> errors = validator.validate(inputStream);
+
+        if (errors.isEmpty()) {
+            LogStorage.addLog("info", "Vendor static data validation passed with no errors");
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "success",
+                    "message", "No validation errors in vendor data."
+            ));
+        } else {
+            LogStorage.addLog("warning", "Vendor static data validation failed with errors");
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "error",
+                    "message", "Vendor data validation failed.",
+                    "errors", errors
+            ));
+        }
+    } catch (Exception e) {
+        LogStorage.addLog("error", "Exception during vendor data validation: " + e.getMessage());
+        try {
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "error",
+                    "message", "Vendor data validation exception: " + e.getMessage()
+            ));
+        } catch (Exception serializationException) {
+            return "{\"status\":\"error\",\"message\":\"Unknown error during vendor validation.\"}";
             }
         }
     }
