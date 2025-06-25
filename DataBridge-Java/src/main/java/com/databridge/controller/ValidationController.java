@@ -3,6 +3,7 @@ package com.databridge.controller;
 import com.databridge.util.LogStorage;
 import com.databridge.validator.MembersExcelValidator;
 import com.databridge.validator.ChartOfAccountsExcelValidator;
+import com.databridge.validator.CustomerExcelValidator;
 import com.databridge.validator.NomineeExcelValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -115,6 +116,41 @@ public class ValidationController {
             } catch (Exception serializationException) {
                 LogStorage.addLog("error", "Serialization error after nominee validation failure");
                 return "{\"status\":\"error\",\"message\":\"Unknown error during nominee file validation.\"}";
+            }
+        }
+    }
+
+    public String validateCustomers(InputStream inputStream) {
+    LogStorage.addLog("info", "Started validating customer static data file");
+
+    try {
+        CustomerExcelValidator validator = new CustomerExcelValidator();
+        Map<Integer, List<String>> errors = validator.validate(inputStream);
+
+        if (errors.isEmpty()) {
+            LogStorage.addLog("info", "Customer static data validation passed with no errors");
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "success",
+                    "message", "No validation errors in customer data."
+            ));
+        } else {
+            LogStorage.addLog("warning", "Customer static data validation failed with errors");
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "error",
+                    "message", "Customer data validation failed.",
+                    "errors", errors
+            ));
+        }
+    } catch (Exception e) {
+        LogStorage.addLog("error", "Exception during customer data validation: " + e.getMessage());
+        try {
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "error",
+                    "message", "Customer data validation exception: " + e.getMessage()
+            ));
+        } catch (Exception serializationException) {
+            LogStorage.addLog("error", "Serialization error after customer validation failure");
+            return "{\"status\":\"error\",\"message\":\"Unknown error during customer data validation.\"}";
             }
         }
     }
