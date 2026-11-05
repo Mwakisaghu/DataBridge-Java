@@ -1,0 +1,7 @@
+{
+  "workspaceDir": "${user.home}/databridge-workspaces",
+  "retention": {
+    "mode": "PURGE_ON_COMPLETE",
+    "maxRunHours": 6
+  }
+}

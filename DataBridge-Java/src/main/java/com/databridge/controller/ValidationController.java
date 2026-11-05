@@ -8,6 +8,7 @@ import com.databridge.validator.CustomerExcelValidator;
 import com.databridge.validator.FixedAssetExcelValidator;
 import com.databridge.validator.NomineeExcelValidator;
 import com.databridge.validator.StandingOrderExcelValidator;
+import com.databridge.validator.StandingOrderLinesExcelValidator;
 import com.databridge.validator.VendorExcelValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -294,6 +295,41 @@ public class ValidationController {
         } catch (Exception serializationException) {
             LogStorage.addLog("error", "Serialization error after standing orders validation failure");
             return "{\"status\":\"error\",\"message\":\"Unknown error during standing orders validation.\"}";
+            }
+        }
+    }
+
+    public String validateStandingOrderLines(InputStream inputStream) {
+    LogStorage.addLog("info", "Started validating standing order lines file");
+
+    try {
+        StandingOrderLinesExcelValidator validator = new StandingOrderLinesExcelValidator();
+        Map<Integer, List<String>> errors = validator.validate(inputStream);
+
+        if (errors.isEmpty()) {
+            LogStorage.addLog("info", "Standing order lines file validation passed with no errors");
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "success",
+                    "message", "No validation errors in standing order lines file."
+            ));
+        } else {
+            LogStorage.addLog("warning", "Standing order lines file validation failed with errors");
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "error",
+                    "message", "Validation failed in standing order lines file.",
+                    "errors", errors
+            ));
+        }
+    } catch (Exception e) {
+        LogStorage.addLog("error", "Exception during standing order lines file validation: " + e.getMessage());
+        try {
+            return objectMapper.writeValueAsString(Map.of(
+                    "status", "error",
+                    "message", "Validation exception: " + e.getMessage()
+            ));
+        } catch (Exception serializationException) {
+            LogStorage.addLog("error", "Serialization error after standing order lines validation failure");
+            return "{\"status\":\"error\",\"message\":\"Unknown error during standing order lines validation.\"}";
             }
         }
     }

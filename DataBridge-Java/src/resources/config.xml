@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+    <database>
+        <source>
+            <url>jdbc:sqlserver://localhost:1433;databaseName=Demo Database BC (23-0);encrypt=true;trustServerCertificate=true</url>
+            <user>vwUser</user>
+            <password>@Tr@ilABC23</password>
+        </source>
+        <target>
+            <url>jdbc:sqlserver://localhost:1433;databaseName=Demo Database BC (25-0);encrypt=true;trustServerCertificate=true</url>
+            <user>mwUser</user>
+            <password>@Tr@ilABC23</password>
+        </target>
+    </database>
+
+    <paths>
+        <!-- Path to schema mapping JSON -->
+        <schema>DataBridge-Java/src/resources/schema_mappings.json</schema>
+    </paths>
+</config>

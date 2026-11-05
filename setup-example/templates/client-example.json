@@ -1,0 +1,31 @@
+[
+  {
+    "sheetName": "HR Leave Balances",
+    "purpose": "Leave opening balances",
+    "fields": [
+      {
+        "caption": "Staff no.",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Employee Name",
+        "type": "Text100"
+      },
+      {
+        "caption": "Leave type",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Leave type name",
+        "type": "Text100"
+      },
+      {
+        "caption": "Leave days",
+        "type": "Decimal",
+        "required": true
+      }
+    ]
+  }
+]

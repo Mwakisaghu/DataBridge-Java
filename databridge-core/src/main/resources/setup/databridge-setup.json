@@ -1,0 +1,13 @@
+{
+  "workspaceDir": "${java.io.tmpdir}/databridge-workspaces",
+  "retention": {
+    "mode": "PURGE_ON_COMPLETE",
+    "keepHours": 24,
+    "maxRunHours": 6,
+    "secureOverwrite": true,
+    "sweepOnStartup": true
+  },
+  "findingValueMode": "MASKED",
+  "captionScanRows": 10,
+  "maxUploadMb": 200
+}
