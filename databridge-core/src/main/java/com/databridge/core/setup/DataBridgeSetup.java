@@ -35,7 +35,7 @@ public class DataBridgeSetup {
                 .replace("${user.home}", System.getProperty("user.home"));
     }
 
-    void validate() {
+    public void validate() {
         if (workspaceDir == null || workspaceDir.isBlank()) throw new SetupException("workspaceDir is required");
         if (retention == null) throw new SetupException("retention is required");
         retention.validate();

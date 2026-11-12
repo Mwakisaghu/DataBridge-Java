@@ -28,7 +28,7 @@ public class RetentionSetup {
     public void setSecureOverwrite(boolean secureOverwrite) { this.secureOverwrite = secureOverwrite; }
     public void setSweepOnStartup(boolean sweepOnStartup) { this.sweepOnStartup = sweepOnStartup; }
 
-    void validate() {
+    public void validate() {
         if (mode == null) throw new SetupException("retention.mode is required");
         if (keepHours < 1 || keepHours > 720) throw new SetupException("retention.keepHours must be 1-720");
         if (maxRunHours < 1 || maxRunHours > 72) throw new SetupException("retention.maxRunHours must be 1-72");

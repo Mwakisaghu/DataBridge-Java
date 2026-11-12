@@ -12,7 +12,7 @@
 
   <artifactId>databridge-core</artifactId>
   <name>DataBridge Core</name>
-  <description>Framework-free migration engine: setups, schema registry, workspaces, findings.</description>
+  <description>Framework-free migration engine: setups, schema registry, workspaces, findings, services.</description>
 
   <dependencies>
     <dependency>
@@ -48,6 +48,15 @@
   <build>
     <finalName>databridge-core</finalName>
     <plugins>
+      <!-- Publishes the test helpers (TestWorkbooks, Fixture, contract tests) to the other modules -->
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals><goal>test-jar</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <artifactId>maven-shade-plugin</artifactId>
         <executions>
@@ -56,6 +65,9 @@
             <goals><goal>shade</goal></goals>
             <configuration>
               <createDependencyReducedPom>false</createDependencyReducedPom>
+              <!-- Keep databridge-core.jar thin for the other modules; the runnable CLI is databridge-core-cli.jar -->
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>cli</shadedClassifierName>
               <filters>
                 <filter>
                   <artifact>*:*</artifact>
