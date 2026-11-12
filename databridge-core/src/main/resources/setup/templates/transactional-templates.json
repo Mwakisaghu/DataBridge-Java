@@ -1,0 +1,327 @@
+[
+  {
+    "sheetName": "TRIAL BALANCE",
+    "purpose": "Opening trial balance (G/L journal)",
+    "fields": [
+      {
+        "caption": "No.",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Description",
+        "type": "Text100",
+        "required": false
+      },
+      {
+        "caption": "Debit",
+        "type": "Decimal",
+        "required": false
+      },
+      {
+        "caption": "Credit",
+        "type": "Decimal",
+        "required": false
+      },
+      {
+        "caption": "Branch",
+        "type": "Code20",
+        "required": false
+      },
+      {
+        "caption": "Activity",
+        "type": "Code20",
+        "required": true
+      }
+    ]
+  },
+  {
+    "sheetName": "BANK BALANCES",
+    "purpose": "Bank opening balances (bank journal)",
+    "fields": [
+      {
+        "caption": "No",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Description",
+        "type": "Text100",
+        "required": false
+      },
+      {
+        "caption": "Activity",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Balance as at cutoff date",
+        "type": "Decimal",
+        "required": true
+      }
+    ]
+  },
+  {
+    "sheetName": "CUSTOMER BALANCES",
+    "purpose": "Customer opening balances (sales journal)",
+    "fields": [
+      {
+        "caption": "Customer No.",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Descripion",
+        "type": "Text100",
+        "required": false
+      },
+      {
+        "caption": "Activity code",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Balance as at cutoff date",
+        "type": "Decimal",
+        "required": true
+      }
+    ]
+  },
+  {
+    "sheetName": "VENDOR BALANCES",
+    "purpose": "Vendor opening balances (purchase journal)",
+    "fields": [
+      {
+        "caption": "No.",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Descripion",
+        "type": "Text100",
+        "required": false
+      },
+      {
+        "caption": "Activity code",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Balance as at cutoff date",
+        "type": "Decimal",
+        "required": true
+      }
+    ]
+  },
+  {
+    "sheetName": "FIXED ASSETS",
+    "purpose": "Fixed asset opening balances (FA G/L journal)",
+    "fields": [
+      {
+        "caption": "Asset no",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Fixed asset Description",
+        "type": "Text100",
+        "required": false
+      },
+      {
+        "caption": "Fixed asset class",
+        "type": "Code10",
+        "required": true
+      },
+      {
+        "caption": "Acqusition cost",
+        "type": "Decimal",
+        "required": true
+      },
+      {
+        "caption": "Accumulated depreciation",
+        "type": "Decimal",
+        "required": true
+      },
+      {
+        "caption": "Net Book value as at cutoff date",
+        "type": "Decimal",
+        "required": true
+      }
+    ]
+  },
+  {
+    "sheetName": "BOSA SAVINGS AC",
+    "purpose": "BOSA savings opening balances",
+    "fields": [
+      {
+        "caption": "Account No.",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Member number",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Activity code",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Balance as at cutoff date",
+        "type": "Decimal",
+        "required": true
+      }
+    ]
+  },
+  {
+    "sheetName": "FOSA SAVINGS AC",
+    "purpose": "FOSA savings opening balances",
+    "fields": [
+      {
+        "caption": "Account No.",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Member number",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Activity code",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Book Balance as at cutoff date",
+        "type": "Decimal",
+        "required": true
+      }
+    ]
+  },
+  {
+    "sheetName": "BOSA LOANS",
+    "purpose": "BOSA loan opening balances",
+    "fields": [
+      {
+        "caption": "Loan Number",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Member Number",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Loan type",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Loan Description",
+        "type": "Text100",
+        "required": false
+      },
+      {
+        "caption": "Activity Code",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Outstanding Principal as at cutoff day(KES)",
+        "type": "Decimal",
+        "required": true
+      },
+      {
+        "caption": "Outstanding Interest as at cutoff day(KES)",
+        "type": "Decimal",
+        "required": true
+      }
+    ]
+  },
+  {
+    "sheetName": "FOSA LOANS",
+    "purpose": "FOSA loan opening balances",
+    "fields": [
+      {
+        "caption": "Loan Number",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Member Number",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Loan type",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Loan Description",
+        "type": "Text100",
+        "required": false
+      },
+      {
+        "caption": "Activity Code",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Outstanding Principal as at cutoff day(KES)",
+        "type": "Decimal",
+        "required": true
+      },
+      {
+        "caption": "Outstanding Interest as at cutoff day(KES)",
+        "type": "Decimal",
+        "required": true
+      }
+    ]
+  },
+  {
+    "sheetName": "ITEM LIST",
+    "purpose": "Inventory opening quantities (item journal)",
+    "fields": [
+      {
+        "caption": "Item No",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Item Description",
+        "type": "Text100",
+        "required": false
+      },
+      {
+        "caption": "Activity Code",
+        "type": "Code20",
+        "required": true
+      },
+      {
+        "caption": "Base unit of measure",
+        "type": "Code10",
+        "required": true
+      },
+      {
+        "caption": "Direct Unit cost",
+        "type": "Decimal",
+        "required": false
+      },
+      {
+        "caption": "Unit Price",
+        "type": "Decimal",
+        "required": false
+      },
+      {
+        "caption": "Quantity in store as at cut off day",
+        "type": "Decimal",
+        "required": true
+      }
+    ]
+  }
+]

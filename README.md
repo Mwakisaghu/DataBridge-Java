@@ -1,111 +1,47 @@
-# Java Middleware for Data Seeding, Migration & Cleaning
+# DataBridge
 
-##  Overview
-This middleware is designed to:
-- ✅ **Generate realistic fake data** using Datafaker
-- ✅ **Migrate data** between SQL & NoSQL databases
-- ✅ **Clean & anonymize sensitive data**
-- ✅ **Provide a REST API** (built with Undertow)
+DataBridge prepares client data for Microsoft Dynamics 365 Business Central migrations. It takes the
+Data Migration Templates a client fills in (static, transactional and HR), validates them, cleans
+them, reconciles opening balances and produces import-ready Configuration Packages.
 
-##  Tech Stack
-- **Backend:** Java (JDK 17+), Undertow, Hibernate, JDBC
-- **Database Support:** MySQL, PostgreSQL, Oracle, MongoDB, Redis
-- **Logging & Monitoring:** SLF4J + Logback
-- **Deployment:** Docker
-- **Web Dashboard:** React
+## Modules
 
----
+| Folder | What it is | Status |
+| --- | --- | --- |
+| `databridge-core/` | Framework-free engine: setups, schema registry, workspaces, findings, CLI | Phase 0, in progress |
+| `databridge-app/` | Spring Boot application around the core (REST API, security, database) | Phase 0, next |
+| `DataBridge-Java/` | Legacy Undertow prototype and its 9 hand-coded validators | Retired in Phase 1; kept for reference |
 
-#  Project Setup
+## Principles
 
-##  1. Initialize the Repository
-```sh
-git init java-middleware
-cd java-middleware
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/java-middleware.git
+1. **No client data is kept.** Client files live only in a short-lived workspace that is destroyed
+   when processing ends (see [ADR 0001](docs/adr/0001-no-client-data-retention.md)).
+2. **Setups, not code.** Anything that differs between clients or firms is a setup
+   (see [ADR 0002](docs/adr/0002-setup-driven-configuration.md)).
+3. **Fail closed.** A step that crashes is reported as ERROR, never as a pass.
+
+## Build and run
+
+Requires JDK 17+ and Maven 3.9+.
+
+```bash
+mvn -q verify                                   # compile, run tests, build the CLI jar
+java -jar databridge-core/target/databridge-core.jar --help
+java -jar databridge-core/target/databridge-core.jar schema Static_Data_Templates.xlsx --out target/schema-registry.json
+java -jar databridge-core/target/databridge-core.jar purge --all     # clear every client workspace now
+java -jar databridge-core/target/databridge-core.jar setup           # show the setups in force
 ```
 
-##  2. Set Up Java Project (Maven/Gradle)
-```sh
-mvn archetype:generate -DgroupId=com.middleware -DartifactId=java-middleware -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false
-```
+Add `--setup <folder>` to any command to use an installation setup folder; see
+[`setup-example/`](setup-example/README.md).
 
----
+## Setups
 
-#  Tasks & Roadmap
+| Setup | File | Controls |
+| --- | --- | --- |
+| DataBridge Setup | `databridge-setup.json` | Workspace folder, retention, finding value masking, upload size limit |
+| Retention Setup | `retention` block in `databridge-setup.json` | When workspaces are destroyed, secure overwrite, startup sweep |
+| Template Setup | `templates/*.json` | Per sheet: BC table name and ID, caption row, column types and required flags |
 
-##  Phase 1: Project Initialization
-✅ Initialize Git repository  
-✅ Set up Maven/Gradle dependencies  
-✅ Configure Undertow for REST API  
-✅ Set up database connection pooling (HikariCP)
-
-##  Phase 2: Data Generation & Seeding
-✅ Integrate **Datafaker** for realistic data generation  
-✅ Implement API endpoint for **batch data insertion**  
-✅ Allow **custom schema definitions** (JSON-based)  
-✅ Optimize for bulk inserts
-
-##  Phase 3: Data Migration
-✅ Implement **JDBC-based migration** for SQL databases  
-✅ Support **MongoDB bulk writes** for NoSQL  
-✅ Allow **cross-DB migrations** (MySQL → PostgreSQL, MongoDB → Redis)
-
-##  Phase 4: Data Cleaning & Anonymization
-✅ Implement **PII masking** (emails, phone numbers, SSNs)  
-✅ Add **custom cleanup rules** (remove duplicates, randomize fields)  
-✅ Provide **configurable retention policies** (auto-delete old records)
-
-##  Phase 5: REST API Development
-✅ Implement controllers & services  
-✅ Define API routes for:
-| Method | Endpoint | Description |
-|--------|---------|-------------|
-| `POST` | `/generate` | Generate fake data |
-| `POST` | `/migrate` | Migrate data between DBs |
-| `POST` | `/clean` | Clean sensitive data |
-✅ Write unit tests for API endpoints
-
-##  Phase 6: Web-Based Dashboard
-✅ Design frontend UI using **React**  
-✅ Connect frontend with backend via REST API  
-✅ Deploy dashboard with middleware
-
-##  Phase 7: Deployment & Hosting
-✅ Write **Dockerfile & Kubernetes scripts**  
-✅ Deploy on **Windows or Linux server**  
-✅ Configure **logging & monitoring** (Prometheus/Grafana)
-
----
-
-#  Usage & Examples
-### 1️⃣ Generate Fake Data (API Call)
-```sh
-curl -X POST http://localhost:8080/generate -H "Content-Type: application/json" -d '{ "table": "users", "count": 100 }'
-```
-
-### 2 Migrate Data Between Databases
-```sh
-curl -X POST http://localhost:8080/migrate -H "Content-Type: application/json" -d '{ "source": "mysql", "target": "postgresql" }'
-```
-
-### 3️ Clean & Anonymize Data
-```sh
-curl -X POST http://localhost:8080/clean -H "Content-Type: application/json" -d '{ "table": "users", "fields": ["email", "phone"] }'
-```
-
----
-
-#  Contribution Guide
-1️⃣ Fork the repository  
-2️⃣ Create a feature branch (`git checkout -b feature-xyz`)  
-3️⃣ Commit changes (`git commit -m "Added new feature"`)  
-4️⃣ Push and create a pull request  
-
----
-
-#  License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
+Shipped defaults live in `databridge-core/src/main/resources/setup/`. An installation folder
+overrides only the values it names.

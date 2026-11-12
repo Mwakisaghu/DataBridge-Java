@@ -1,0 +1,17 @@
+[
+  {
+    "sheetName": "Chart of Account",
+    "tableName": "G/L Account",
+    "tableId": 15,
+    "purpose": "Chart of accounts (Config Package table 15)",
+    "fields": [
+      { "caption": "Old Account No", "type": "Code20" }
+    ]
+  },
+  {
+    "sheetName": "Item",
+    "tableName": "Item",
+    "tableId": 27,
+    "purpose": "Items (Config Package table 27)"
+  }
+]

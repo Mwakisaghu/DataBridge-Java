@@ -1,0 +1,4 @@
+# Default Template Setups shipped with DataBridge, loaded in this order.
+# An installation setup folder (--setup <dir>/templates/*.json) overrides these.
+static-templates.json
+transactional-templates.json

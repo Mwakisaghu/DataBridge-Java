@@ -50,3 +50,14 @@ build/
 # Ignore sensitive config files
 DataBridge-Java\src\resources\config.xml
 E:\DataBridge-Java\DataBridge-Java\src\resources\config.xml
+DataBridge-Java\src\resources\schema_mappings.json
+E:\DataBridge-Java\DataBridge-Java\src\resources\schema_mappings.json
+
+# --- DataBridge P0-01 ---
+**/target/
+databridge-workspaces/
+# Never commit client workbooks or exports. Tests build synthetic workbooks in memory.
+*.xlsx
+*.xlsm
+*.xls
+*.csv
