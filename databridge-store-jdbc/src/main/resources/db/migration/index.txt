@@ -1,0 +1,3 @@
+# Migration scripts, applied in order by SchemaMigrator. Never edit a script once it has
+# been applied anywhere: add a new V<n>__<description>.sql and list it here.
+V1__baseline.sql

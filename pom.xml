@@ -13,6 +13,8 @@
 
   <modules>
     <module>databridge-core</module>
+    <module>databridge-store-jdbc</module>
+    <module>databridge-app</module>
   </modules>
 
   <properties>
@@ -23,10 +25,30 @@
     <slf4j.version>2.0.13</slf4j.version>
     <log4j.version>2.23.1</log4j.version>
     <junit.version>5.10.2</junit.version>
+    <h2.version>2.2.224</h2.version>
+    <undertow.version>2.3.8.Final</undertow.version>
+    <hikaricp.version>5.1.0</hikaricp.version>
+    <mssql-jdbc.version>12.4.2.jre11</mssql-jdbc.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>com.databridge</groupId>
+        <artifactId>databridge-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.databridge</groupId>
+        <artifactId>databridge-core</artifactId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+      </dependency>
+      <dependency>
+        <groupId>com.databridge</groupId>
+        <artifactId>databridge-store-jdbc</artifactId>
+        <version>${project.version}</version>
+      </dependency>
       <dependency>
         <groupId>org.apache.poi</groupId>
         <artifactId>poi-ooxml</artifactId>
@@ -53,6 +75,26 @@
         <version>${log4j.version}</version>
       </dependency>
       <dependency>
+        <groupId>io.undertow</groupId>
+        <artifactId>undertow-core</artifactId>
+        <version>${undertow.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.zaxxer</groupId>
+        <artifactId>HikariCP</artifactId>
+        <version>${hikaricp.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.microsoft.sqlserver</groupId>
+        <artifactId>mssql-jdbc</artifactId>
+        <version>${mssql-jdbc.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.h2database</groupId>
+        <artifactId>h2</artifactId>
+        <version>${h2.version}</version>
+      </dependency>
+      <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
         <version>${junit.version}</version>
@@ -68,6 +110,9 @@
         <plugin>
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.13.0</version>
+          <configuration>
+            <parameters>true</parameters>
+          </configuration>
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>

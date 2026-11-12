@@ -38,3 +38,8 @@ DataBridge only needs it while a migration step runs.
   encrypted disks.
 - Test suites build synthetic workbooks in memory; client templates are never committed
   (`.gitignore` blocks spreadsheets outside test resources).
+- The database holds setups, clients, projects, runs, dataset versions (file name, size, SHA-256,
+  schema) and audit events. A dataset version's SHA-256 proves which exact file was processed
+  without keeping the file.
+- Uploads are sent as the raw request body, not multipart, and streamed straight into a
+  workspace while being hashed and size-checked. No web-server temporary copy is made.
