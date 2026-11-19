@@ -52,7 +52,14 @@ public final class DataBridgeServer implements AutoCloseable {
             System.exit(1);
             return;
         }
-        DataBridgeServer server = start(config);
+        DataBridgeServer server;
+        try {
+            server = start(config);
+        } catch (RuntimeException e) {
+            System.err.println("databridge: " + startupProblem(e, config));
+            System.exit(1);
+            return;
+        }
         Runtime.getRuntime().addShutdownHook(new Thread(server::close, "databridge-shutdown"));
         System.out.println("DataBridge listening on http://" + config.host() + ":" + server.port()
                 + "  (database " + config.safeDbUrl() + ")");
@@ -101,6 +108,23 @@ public final class DataBridgeServer implements AutoCloseable {
             ds.close();
             throw e;
         }
+    }
+
+    /** A one-line explanation of why startup failed, with what to do about it. */
+    static String startupProblem(Throwable e, AppConfig config) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof java.net.BindException) {
+                return "port " + config.port() + " on " + config.host() + " is already in use. Stop the other process "
+                        + "(is DataBridge already running?) or set DATABRIDGE_PORT to another port.";
+            }
+            if (t instanceof com.databridge.store.jdbc.MigrationException) {
+                return "database schema problem: " + t.getMessage();
+            }
+            if (t instanceof java.sql.SQLException) {
+                return "cannot connect to the database " + config.safeDbUrl() + ": " + t.getMessage();
+            }
+        }
+        return "could not start: " + e;
     }
 
     /** The port actually bound (useful when configured as 0). */

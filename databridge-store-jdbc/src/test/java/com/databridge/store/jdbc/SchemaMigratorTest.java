@@ -46,4 +46,16 @@ class SchemaMigratorTest {
         List<String> s = SchemaMigrator.statements("-- header\nCREATE TABLE a (x INT); -- trailing\nGO\nCREATE TABLE b (y INT)\ngo\n");
         assertEquals(List.of("CREATE TABLE a (x INT)", "CREATE TABLE b (y INT)"), s);
     }
+
+    @Test
+    void picksScriptsByDatabaseAndExplainsWhatIsMissing() {
+        assertEquals("sqlserver", SchemaMigrator.vendor("Microsoft SQL Server"));
+        assertEquals("h2", SchemaMigrator.vendor("H2"));
+        assertEquals("postgresql", SchemaMigrator.vendor("PostgreSQL"));
+        assertEquals("mysql", SchemaMigrator.vendor("MariaDB"));
+        assertEquals("/db/migration", SchemaMigrator.folderFor("sqlserver"));
+        assertEquals("/db/migration", SchemaMigrator.folderFor("h2"));
+        MigrationException e = assertThrows(MigrationException.class, () -> SchemaMigrator.folderFor("postgresql"));
+        assertTrue(e.getMessage().contains("db/migration/postgresql"), e.getMessage());
+    }
 }

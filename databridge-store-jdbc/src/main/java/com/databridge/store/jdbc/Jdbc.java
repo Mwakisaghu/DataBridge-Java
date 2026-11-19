@@ -29,7 +29,13 @@ public final class Jdbc {
     }
 
     public <T> List<T> query(String sql, RowMapper<T> mapper, Object... params) {
+        return queryLimited(sql, 0, mapper, params);
+    }
+
+    /** Like {@link #query} but returns at most {@code maxRows} rows (0 = no limit), without vendor SQL such as TOP or LIMIT. */
+    public <T> List<T> queryLimited(String sql, int maxRows, RowMapper<T> mapper, Object... params) {
         try (Connection c = ds.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            if (maxRows > 0) ps.setMaxRows(maxRows);
             bind(ps, params);
             try (ResultSet rs = ps.executeQuery()) {
                 List<T> out = new ArrayList<>();

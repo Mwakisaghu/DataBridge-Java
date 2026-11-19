@@ -3,7 +3,10 @@ package com.databridge.app;
 import com.databridge.app.http.Endpoints;
 import com.databridge.app.http.Request;
 import com.databridge.app.http.Response;
+import com.databridge.core.domain.Client;
 import com.databridge.core.domain.DatasetVersion;
+import com.databridge.core.domain.MigrationRun;
+import com.databridge.core.domain.Project;
 import com.databridge.core.domain.RunType;
 import com.databridge.core.domain.TemplateKind;
 import com.databridge.core.run.RunStatus;
@@ -59,6 +62,11 @@ public final class ApiRoutes {
 
     public record Health(String status, String database) { }
 
+    /** Clients with their projects and runs, for the Control Centre, in one call. */
+    public record RunOverview(MigrationRun run, int datasets, int failedDatasets) { }
+    public record ProjectOverview(Project project, List<RunOverview> runs) { }
+    public record ClientOverview(Client client, List<ProjectOverview> projects) { }
+
     /** Checks the database; returns true when it answers. */
     @FunctionalInterface
     public interface DatabaseProbe { boolean ok(); }
@@ -103,6 +111,7 @@ public final class ApiRoutes {
         }));
 
         // Clients, projects, runs
+        r.get("/api/overview", e.handler(q -> Response.ok(overview())));
         r.get("/api/clients", e.handler(q -> Response.ok(migrations.clients())));
         r.post("/api/clients", e.handler(q -> {
             NewClient b = q.body(NewClient.class);
@@ -140,6 +149,16 @@ public final class ApiRoutes {
         r.setFallbackHandler(e.status(404, "No such endpoint"));
         r.setInvalidMethodHandler(e.status(405, "Method not allowed on this endpoint"));
         return r;
+    }
+
+    private List<ClientOverview> overview() {
+        return migrations.clients().stream().map(c -> new ClientOverview(c,
+                migrations.projects(c.id()).stream().map(p -> new ProjectOverview(p,
+                        migrations.runs(p.id()).stream().map(run -> {
+                            List<DatasetVersion> ds = intake.datasets(run.id());
+                            int failed = (int) ds.stream().filter(d -> d.status() != RunStatus.SUCCEEDED).count();
+                            return new RunOverview(run, ds.size(), failed);
+                        }).toList())).toList())).toList();
     }
 
     private Response health(Request q) {

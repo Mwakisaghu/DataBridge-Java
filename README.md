@@ -9,7 +9,7 @@ them, reconciles opening balances and produces import-ready Configuration Packag
 | Folder | What it is | Status |
 | --- | --- | --- |
 | `databridge-core/` | Framework-free engine: domain model, setups, schema registry, workspaces, services, CLI | Phase 0 |
-| `databridge-store-jdbc/` | Database schema (versioned SQL scripts, built-in migrator) and plain-JDBC repositories | Phase 0 |
+| `databridge-store-jdbc/` | Versioned SQL scripts per database, built-in migrator, database-neutral JDBC repositories | Phase 0 |
 | `databridge-app/` | Undertow REST server, no framework: routes, scheduled purge, hand wiring | Phase 0 |
 | `DataBridge-Java/` | Legacy Undertow prototype and its 9 hand-coded validators | Retired in Phase 1; kept for reference |
 
@@ -41,10 +41,27 @@ java -jar databridge-core/target/databridge-core-cli.jar purge --all
 java -jar databridge-core/target/databridge-core-cli.jar setup --setup setup-example
 ```
 
+## Day-to-day development: server plus UI
+
+Two terminals. The UI lives in the separate `DataBridge-FrontEnd` repository; its Vite dev server
+forwards `/api` and `/health` to this server, so there is no CORS setup and the server stays local.
+
+```bash
+# Terminal 1: this repository
+mvn -q verify && java -jar databridge-app/target/databridge-app.jar
+
+# Terminal 2: DataBridge-FrontEnd/data-dashboard
+npm install && npm run dev        # open http://localhost:5173
+```
+
+Data is kept in H2 database files under `~/databridge-data` and survives restarts. To start afresh,
+stop the server and delete that folder. Moving to PostgreSQL, MySQL or SQL Server later:
+[ADR 0004](docs/adr/0004-database-portability.md).
+
 ## Server
 
 ```bash
-# Development: in-memory H2 in SQL Server mode (data is lost on restart)
+# Development: H2 files in ~/databridge-data (kept between restarts)
 java -jar databridge-app/target/databridge-app.jar
 
 # SQL Server: environment variables, or put the same keys in a file and pass --config <file>
@@ -72,6 +89,7 @@ curl -X POST "http://127.0.0.1:8085/api/runs/$RUN_ID/datasets?kind=STATIC&fileNa
 | Method | Path | Does |
 | --- | --- | --- |
 | GET | `/health` | Server and database status |
+| GET | `/api/overview` | Clients with their projects, runs and dataset counts, in one call |
 | GET, PATCH | `/api/setup` | DataBridge Setup and Retention Setup (PATCH changes only the values sent) |
 | GET | `/api/setup/templates` | Template Setups in force (shipped defaults plus stored) |
 | PUT, DELETE | `/api/setup/templates/{sheetName}` | Store or remove a Template Setup |

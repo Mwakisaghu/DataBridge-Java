@@ -35,7 +35,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** Plain-JDBC implementations of the core repository ports. Portable SQL (SQL Server, H2). */
+/**
+ * Plain-JDBC implementations of the core repository ports. Queries use only ANSI SQL and
+ * JDBC features (no vendor row-limit syntax, no vendor functions), so they run unchanged on
+ * SQL Server, H2, PostgreSQL and MySQL; only the DDL scripts differ per database.
+ */
 public final class JdbcRepositories {
 
     private final Jdbc jdbc;
@@ -156,15 +160,14 @@ public final class JdbcRepositories {
                     e.id(), e.occurredAt(), e.actor(), e.action(), e.entityType(), e.entityId(), e.details());
         }
         @Override public List<AuditEvent> list(String entityType, String entityId, int limit) {
-            StringBuilder sql = new StringBuilder("SELECT TOP ").append(Math.max(1, Math.min(limit, 1000)))
-                    .append(" ").append(COLS).append(" FROM audit_event WHERE 1 = 1");
+            StringBuilder sql = new StringBuilder("SELECT ").append(COLS).append(" FROM audit_event WHERE 1 = 1");
             List<Object> params = new ArrayList<>();
             if (entityType != null) { sql.append(" AND entity_type = ?"); params.add(entityType); }
             if (entityId != null) { sql.append(" AND entity_id = ?"); params.add(entityId); }
             sql.append(" ORDER BY occurred_at DESC, id DESC");
-            return jdbc.query(sql.toString(), rs -> new AuditEvent(rs.getString("id"), Jdbc.instant(rs, "occurred_at"),
-                    rs.getString("actor"), rs.getString("action"), rs.getString("entity_type"), rs.getString("entity_id"),
-                    rs.getString("details")), params.toArray());
+            return jdbc.queryLimited(sql.toString(), Math.max(1, Math.min(limit, 1000)), rs -> new AuditEvent(rs.getString("id"),
+                    Jdbc.instant(rs, "occurred_at"), rs.getString("actor"), rs.getString("action"), rs.getString("entity_type"),
+                    rs.getString("entity_id"), rs.getString("details")), params.toArray());
         }
     }
 

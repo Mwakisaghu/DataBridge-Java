@@ -26,8 +26,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Applies the versioned SQL scripts listed in {@code /db/migration/index.txt}, in order,
- * each in its own transaction, and records them in {@code databridge_schema_history}.
+ * Applies the versioned SQL scripts for the connected database, in order. Scripts live in
+ * {@code /db/migration/<database>/} with an {@code index.txt}, where database is
+ * {@code sqlserver}, {@code h2}, {@code postgresql} or {@code mysql}; SQL Server and H2 (in
+ * MSSQLServer mode) share the default scripts in {@code /db/migration/}. Each script runs in
+ * its own transaction and is recorded in {@code databridge_schema_history}.
  * A script that was changed after being applied is refused (checksum mismatch), so a
  * database can never silently drift from the code. Line endings are normalised before
  * hashing, so a Windows checkout with CRLF gives the same checksum.
@@ -40,22 +43,37 @@ public final class SchemaMigrator {
     static final String HISTORY = "databridge_schema_history";
     private static final Pattern NAME = Pattern.compile("^V(\\d+)__[A-Za-z0-9_]+\\.sql$");
 
+    private static final String ROOT = "/db/migration";
+
     private final DataSource dataSource;
-    private final String base;
 
     public SchemaMigrator(DataSource dataSource) {
-        this(dataSource, "/db/migration");
+        this.dataSource = dataSource;
     }
 
-    SchemaMigrator(DataSource dataSource, String base) {
-        this.dataSource = dataSource;
-        this.base = base;
+    /** Maps a JDBC product name to its script folder name. */
+    static String vendor(String productName) {
+        String p = productName == null ? "" : productName.toLowerCase(Locale.ROOT);
+        if (p.contains("sql server")) return "sqlserver";
+        if (p.equals("h2")) return "h2";
+        if (p.contains("postgres")) return "postgresql";
+        if (p.contains("mysql") || p.contains("mariadb")) return "mysql";
+        return p.replaceAll("[^a-z0-9]", "");
+    }
+
+    /** The script folder for a database: its own folder if present, else the shared default. */
+    static String folderFor(String vendor) {
+        String own = ROOT + "/" + vendor;
+        if (SchemaMigrator.class.getResource(own + "/index.txt") != null) return own;
+        if (vendor.equals("sqlserver") || vendor.equals("h2")) return ROOT;
+        throw new MigrationException("No database scripts for '" + vendor + "' yet. Add " + own
+                + "/index.txt and its V<n>__*.sql scripts (see docs/adr/0004).");
     }
 
     public List<Applied> migrate() {
-        Map<Integer, String[]> scripts = scripts();
         List<Applied> applied = new ArrayList<>();
         try (Connection c = dataSource.getConnection()) {
+            Map<Integer, String[]> scripts = scripts(folderFor(vendor(c.getMetaData().getDatabaseProductName())));
             ensureHistory(c);
             Map<Integer, String> done = history(c);
             for (Map.Entry<Integer, String> d : done.entrySet()) {
@@ -129,9 +147,9 @@ public final class SchemaMigrator {
     }
 
     /** version -> {script name, checksum, normalised text}, in version order. */
-    private Map<Integer, String[]> scripts() {
+    private static Map<Integer, String[]> scripts(String base) {
         Map<Integer, String[]> out = new java.util.TreeMap<>();
-        for (String name : index()) {
+        for (String name : index(base)) {
             Matcher m = NAME.matcher(name);
             if (!m.matches()) throw new MigrationException("Bad migration script name: " + name);
             int v = Integer.parseInt(m.group(1));
@@ -143,7 +161,7 @@ public final class SchemaMigrator {
         return out;
     }
 
-    private List<String> index() {
+    private static List<String> index(String base) {
         String text = read(base + "/index.txt");
         List<String> names = new ArrayList<>();
         for (String line : text.split("\\R")) {

@@ -101,6 +101,35 @@ class ApiServerTest {
     }
 
     @Test
+    void overviewNestsProjectsRunsAndDatasetCounts() throws Exception {
+        String runId = openRun("OVERVIEW");
+        upload(runId, "a.xlsx", membersWorkbook());
+        upload(runId, "bad.xlsx", new byte[] {1, 2, 3});
+        Reply r = call("GET", "/api/overview", null);
+        assertEquals(200, r.status(), r.text());
+        JsonNode client = null;
+        for (JsonNode c : r.body()) if (c.get("client").get("code").asText().equals("OVERVIEW")) client = c;
+        JsonNode run = client.get("projects").get(0).get("runs").get(0);
+        assertEquals(runId, run.get("run").get("id").asText());
+        assertEquals(2, run.get("datasets").asInt());
+        assertEquals(1, run.get("failedDatasets").asInt());
+    }
+
+    @Test
+    void startupProblemsAreExplainedInOneLine() {
+        AppConfig c = AppConfig.load(new String[0], Map.of("DATABRIDGE_DB_URL", "jdbc:h2:mem:x"));
+        String msg = DataBridgeServer.startupProblem(new RuntimeException(new java.net.BindException("Address already in use")), c);
+        assertTrue(msg.startsWith("port 8085 on 127.0.0.1 is already in use"), msg);
+        assertTrue(msg.contains("DATABRIDGE_PORT"));
+    }
+
+    @Test
+    void defaultDatabaseKeepsDataBetweenRestarts() {
+        AppConfig c = AppConfig.load(new String[0], Map.of());
+        assertTrue(c.dbUrl().startsWith("jdbc:h2:file:"), c.dbUrl());
+    }
+
+    @Test
     void healthReportsDatabase() throws Exception {
         Reply r = call("GET", "/health", null);
         assertEquals(200, r.status());
