@@ -1,5 +1,6 @@
 package com.databridge.app;
 
+import com.databridge.app.http.Access;
 import com.databridge.app.http.Endpoints;
 import com.databridge.app.http.Request;
 import com.databridge.app.http.Response;
@@ -49,20 +50,20 @@ public final class ValidationRoutes {
     }
 
     public void register(RoutingHandler r, Endpoints e) {
-        r.post("/api/runs/{runId}/submissions", e.handler(q -> Response.created(s.intake().openSubmission(q.path("runId"), q.actor()))));
+        r.post("/api/runs/{runId}/submissions", e.handler(Access.CONSULTANT, q -> Response.created(s.intake().openSubmission(q.path("runId"), q.actor()))));
         r.get("/api/submissions/{id}", e.handler(q -> Response.ok(s.intake().submission(q.path("id")))));
-        r.post("/api/submissions/{id}/files", e.handler(q -> {
+        r.post("/api/submissions/{id}/files", e.handler(Access.CONSULTANT, q -> {
             Submission.File f = s.intake().addFile(q.path("id"), kind(q.requiredQuery("kind")), q.requiredQuery("fileName"),
                     q.stream(), q.actor());
             return Response.of(f.error() == null ? 201 : 422, f);
         }));
-        r.post("/api/submissions/{id}/process", e.handler(q -> {
+        r.post("/api/submissions/{id}/process", e.handler(Access.CONSULTANT, q -> {
             SubmissionResult res = s.intake().process(q.path("id"), q.actor());
             CheckView cv = view(res.check());
             List<ApiRoutes.IntakeResponse> ds = res.datasets().stream().map(ValidationRoutes::intakeResponse).toList();
             return Response.of(res.check().status() == RunStatus.ERROR ? 422 : 201, new ProcessResponse(ds, cv));
         }));
-        r.delete("/api/submissions/{id}", e.handler(q -> {
+        r.delete("/api/submissions/{id}", e.handler(Access.CONSULTANT, q -> {
             s.intake().cancel(q.path("id"), q.actor());
             return Response.noContent();
         }));
@@ -76,22 +77,22 @@ public final class ValidationRoutes {
             ValidationCheck c = s.findings().check(q.path("id"));
             return Response.file(s.findings().register(c.id()), Response.XLSX, "exception-register-check-" + c.checkNo() + ".xlsx");
         }));
-        r.post("/api/findings/{id}/waiver", e.handler(q ->
+        r.post("/api/findings/{id}/waiver", e.handler(Access.CONSULTANT, q ->
                 Response.ok(s.findings().requestWaiver(q.path("id"), q.body(WaiverRequest.class).reason(), q.actor()))));
-        r.post("/api/findings/{id}/waiver/decision", e.handler(q -> {
+        r.post("/api/findings/{id}/waiver/decision", e.handler(Access.REVIEWER, q -> {
             WaiverDecision d = q.body(WaiverDecision.class);
             if (d.approve() == null) throw new ValidationException("Say whether the waiver is approved (approve: true or false)");
             return Response.ok(s.findings().decideWaiver(q.path("id"), d.approve(), d.note(), q.actor()));
         }));
 
         r.get("/api/setup/rules", e.handler(q -> Response.ok(s.rules().views())));
-        r.put("/api/setup/rules/{id}", e.handler(q -> {
+        r.put("/api/setup/rules/{id}", e.handler(Access.ADMIN, q -> {
             RuleDef rule = q.body(RuleDef.class);
             if (rule.getId() == null) rule.setId(q.path("id"));
             else if (!rule.getId().equals(q.path("id"))) throw new ValidationException("Rule id in the body does not match the URL");
             return Response.ok(s.rules().put(rule, q.actor()));
         }));
-        r.delete("/api/setup/rules/{id}", e.handler(q ->
+        r.delete("/api/setup/rules/{id}", e.handler(Access.ADMIN, q ->
                 s.rules().delete(q.path("id"), q.actor()) ? Response.noContent() : Response.notFound()));
     }
 

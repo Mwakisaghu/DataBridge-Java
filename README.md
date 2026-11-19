@@ -81,21 +81,53 @@ java -jar databridge-app/target/databridge-app.jar
 Infrastructure settings and their defaults are in
 [`databridge-app.properties`](databridge-app/src/main/resources/databridge-app.properties)
 (`server.host`, `server.port`, `db.url`, `db.user`, `db.password`, `retention.sweepIntervalMinutes`).
-The server listens on `http://127.0.0.1:8085` only, until sign-in arrives (P0-03). The schema migrator
-creates or updates the tables on every start. Name yourself in the `X-DataBridge-User` header; it goes
-into the audit trail.
+The server listens on `http://127.0.0.1:8085` by default. The schema migrator creates or updates the
+tables on every start.
 
-Upload a workbook as the raw request body, which is streamed straight into a workspace:
+### Sign-in and roles
+
+Sign-in is on by default ([ADR 0006](docs/adr/0006-sign-in-and-roles.md)). On the first start with no
+users, the server creates `admin` and prints a temporary password once in the console; sign in at
+http://localhost:5173, choose your own password, then add people under **Users**.
+
+| Role | May |
+| --- | --- |
+| ADMIN | Everything: users, setups, rules, clearing client files |
+| CONSULTANT | Clients, projects, runs, uploads, submissions; request waivers |
+| REVIEWER | Decide waivers (never their own: maker-checker) |
+| FINANCE | Explain and approve reconciliation variances; approve sign-off |
+| VIEWER | Read everything, change nothing |
+
+| Setting (env) | Default | |
+| --- | --- | --- |
+| `auth.mode` (`DATABRIDGE_AUTH`) | `local` | `none` turns sign-in off for development; refused unless the host is local |
+| `auth.secureCookie` (`DATABRIDGE_SECURE_COOKIE`) | `false` | Set `true` whenever users reach DataBridge over HTTPS |
+| `auth.sessionIdleMinutes` / `auth.sessionAbsoluteHours` | 120 / 12 | Session limits |
+| `auth.initialAdminPassword` (`DATABRIDGE_ADMIN_PASSWORD`) | empty | First start only; empty = generate and print one |
+
+Forgot the admin password with no other admin? Stop the server, then start it once with
+`DATABRIDGE_AUTH=none`, or delete the `app_user` rows in the database to bootstrap again.
+
+Scripts and `curl` sign in first and send the cookie back, plus the `X-DataBridge-Client` header that
+every change needs (it stops other web sites posting with a signed-in browser's cookie):
 
 ```bash
-curl -X POST "http://127.0.0.1:8085/api/runs/$RUN_ID/datasets?kind=STATIC&fileName=Static.xlsx" \
-     -H "X-DataBridge-User: harry" -H "Content-Type: application/octet-stream" \
+curl -c jar -H "X-DataBridge-Client: cli" -H "Content-Type: application/json" \
+     -d '{"username":"harry","password":"..."}' http://127.0.0.1:8085/api/auth/login
+curl -b jar -X POST "http://127.0.0.1:8085/api/runs/$RUN_ID/datasets?kind=STATIC&fileName=Static.xlsx" \
+     -H "X-DataBridge-Client: cli" -H "Content-Type: application/octet-stream" \
      --data-binary "@Static Data Templates.xlsx"
 ```
 
+With `DATABRIDGE_AUTH=none`, name yourself in the `X-DataBridge-User` header instead.
+
 | Method | Path | Does |
 | --- | --- | --- |
-| GET | `/health` | Server and database status |
+| GET | `/health` | Server and database status (no sign-in needed) |
+| POST | `/api/auth/login`, `/api/auth/logout` | Sign in (sets the `DB_SESSION` cookie) and out |
+| GET, POST | `/api/auth/me`, `/api/auth/password` | The signed-in user; change your own password |
+| GET, POST, PUT | `/api/users`, `/api/users/{id}` | User administration (ADMIN) |
+| POST | `/api/users/{id}/reset-password` | Issue a new temporary password (ADMIN) |
 | GET | `/api/overview` | Clients with their projects, runs and dataset counts, in one call |
 | GET, PATCH | `/api/setup` | DataBridge Setup and Retention Setup (PATCH changes only the values sent) |
 | GET | `/api/setup/templates` | Template Setups in force (shipped defaults plus stored) |

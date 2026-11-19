@@ -42,7 +42,7 @@ class ApiServerTest {
     static void start() {
         String db = "jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MSSQLServer;DATABASE_TO_UPPER=FALSE;DB_CLOSE_DELAY=-1";
         server = DataBridgeServer.start(AppConfig.load(new String[0],
-                Map.of("DATABRIDGE_PORT", "0", "DATABRIDGE_DB_URL", db)));
+                Map.of("DATABRIDGE_PORT", "0", "DATABRIDGE_DB_URL", db, "DATABRIDGE_AUTH", "none")));
         base = "http://127.0.0.1:" + server.port();
     }
 

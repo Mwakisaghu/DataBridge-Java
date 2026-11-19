@@ -1,5 +1,6 @@
 package com.databridge.app;
 
+import com.databridge.app.http.Access;
 import com.databridge.app.http.Endpoints;
 import com.databridge.app.http.Request;
 import com.databridge.app.http.Response;
@@ -98,17 +99,17 @@ public final class ApiRoutes {
     public RoutingHandler build(Endpoints e) {
         RoutingHandler r = new RoutingHandler();
 
-        r.get("/health", e.handler(this::health));
+        r.get("/health", e.handler(Access.OPEN, this::health));
 
         // Setups
         r.get("/api/setup", e.handler(q -> Response.ok(setups.effective().general())));
-        r.add(Methods.PATCH, "/api/setup", e.handler(this::patchSetup));
+        r.add(Methods.PATCH, "/api/setup", e.handler(Access.ADMIN, this::patchSetup));
         r.get("/api/setup/templates", e.handler(q -> Response.ok(setups.effective().templates().all())));
-        r.put("/api/setup/templates/{sheetName}", e.handler(this::putTemplate));
-        r.delete("/api/setup/templates/{sheetName}", e.handler(q ->
+        r.put("/api/setup/templates/{sheetName}", e.handler(Access.ADMIN, this::putTemplate));
+        r.delete("/api/setup/templates/{sheetName}", e.handler(Access.ADMIN, q ->
                 setups.deleteSheet(q.path("sheetName"), q.actor()) ? Response.noContent() : Response.notFound()));
         r.get("/api/setup/export", e.handler(q -> Response.ok(setups.stored())));
-        r.post("/api/setup/import", e.handler(q -> {
+        r.post("/api/setup/import", e.handler(Access.ADMIN, q -> {
             setups.importBundle(q.body(SetupBundle.class), q.actor());
             return Response.noContent();
         }));
@@ -116,25 +117,25 @@ public final class ApiRoutes {
         // Clients, projects, runs
         r.get("/api/overview", e.handler(q -> Response.ok(overview())));
         r.get("/api/clients", e.handler(q -> Response.ok(migrations.clients())));
-        r.post("/api/clients", e.handler(q -> {
+        r.post("/api/clients", e.handler(Access.CONSULTANT, q -> {
             NewClient b = q.body(NewClient.class);
             return Response.created(migrations.createClient(b.code(), b.name(), q.actor()));
         }));
         r.get("/api/clients/{clientId}/projects", e.handler(q -> Response.ok(migrations.projects(q.path("clientId")))));
-        r.post("/api/clients/{clientId}/projects", e.handler(q -> {
+        r.post("/api/clients/{clientId}/projects", e.handler(Access.CONSULTANT, q -> {
             NewProject b = q.body(NewProject.class);
             return Response.created(migrations.createProject(q.path("clientId"), b.code(), b.name(), b.bcCompany(), q.actor()));
         }));
         r.get("/api/projects/{projectId}/runs", e.handler(q -> Response.ok(migrations.runs(q.path("projectId")))));
-        r.post("/api/projects/{projectId}/runs", e.handler(q -> {
+        r.post("/api/projects/{projectId}/runs", e.handler(Access.CONSULTANT, q -> {
             NewRun b = q.body(NewRun.class);
             return Response.created(migrations.openRun(q.path("projectId"), b.type(), b.cutoffDate(), q.actor()));
         }));
         r.get("/api/runs/{runId}", e.handler(q -> Response.ok(migrations.run(q.path("runId")))));
-        r.post("/api/runs/{runId}/close", e.handler(q -> Response.ok(migrations.closeRun(q.path("runId"), q.actor()))));
+        r.post("/api/runs/{runId}/close", e.handler(Access.CONSULTANT, q -> Response.ok(migrations.closeRun(q.path("runId"), q.actor()))));
 
         // Datasets
-        r.post("/api/runs/{runId}/datasets", e.handler(this::upload));
+        r.post("/api/runs/{runId}/datasets", e.handler(Access.CONSULTANT, this::upload));
         r.get("/api/runs/{runId}/datasets", e.handler(q ->
                 Response.ok(intake.datasets(q.path("runId")).stream().map(DatasetView::of).toList())));
         r.get("/api/datasets/{id}", e.handler(q -> Response.ok(DatasetView.of(intake.dataset(q.path("id"))))));
@@ -145,11 +146,12 @@ public final class ApiRoutes {
         }));
 
         // Retention and audit
-        r.post("/api/retention/purge", e.handler(this::purge));
+        r.post("/api/retention/purge", e.handler(Access.ADMIN, this::purge));
         r.get("/api/audit", e.handler(q -> Response.ok(audit.list(q.query("entityType"), q.query("entityId"),
                 integer(q.query("limit"), 100)))));
 
         new ValidationRoutes(services).register(r, e);
+        new AuthRoutes(services.users(), services.authMode()).register(r, e);
 
         r.setFallbackHandler(e.status(404, "No such endpoint"));
         r.setInvalidMethodHandler(e.status(405, "Method not allowed on this endpoint"));

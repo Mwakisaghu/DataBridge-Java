@@ -10,6 +10,9 @@ import com.databridge.core.finding.Severity;
 import com.databridge.core.port.CheckRepository;
 import com.databridge.core.port.FindingRepository;
 import com.databridge.core.port.RuleRepository;
+import com.databridge.core.port.UserRepository;
+import com.databridge.core.security.Session;
+import com.databridge.core.security.User;
 import com.databridge.core.setup.SetupLoader;
 import com.databridge.core.validation.RuleDef;
 import com.databridge.core.domain.Client;
@@ -197,5 +200,39 @@ public final class InMemoryRepositories {
             }
         }
         @Override public synchronized boolean delete(String id) { return rows.remove(id) != null; }
+    }
+
+    public static final class Users implements UserRepository {
+        private final Map<String, User> rows = new LinkedHashMap<>();
+        private final Map<String, Session> sessions = new LinkedHashMap<>();
+        @Override public synchronized void insert(User u) {
+            if (findByUsername(u.username()).isPresent()) throw new IllegalStateException("Duplicate user " + u.username());
+            rows.put(u.id(), u);
+        }
+        @Override public synchronized void update(User u) {
+            if (!rows.containsKey(u.id())) throw new IllegalStateException("No user " + u.id());
+            rows.put(u.id(), u);
+        }
+        @Override public synchronized Optional<User> find(String id) { return Optional.ofNullable(rows.get(id)); }
+        @Override public synchronized Optional<User> findByUsername(String n) {
+            return rows.values().stream().filter(u -> u.username().equals(n)).findFirst();
+        }
+        @Override public synchronized List<User> list() {
+            return rows.values().stream().sorted(Comparator.comparing(User::username)).toList();
+        }
+        @Override public synchronized int count() { return rows.size(); }
+        @Override public synchronized void insertSession(Session s) { sessions.put(s.tokenHash(), s); }
+        @Override public synchronized Optional<Session> findSession(String h) { return Optional.ofNullable(sessions.get(h)); }
+        @Override public synchronized void touchSession(String h, Instant at) {
+            Session s = sessions.get(h);
+            if (s != null) sessions.put(h, new Session(h, s.userId(), s.createdAt(), s.expiresAt(), at));
+        }
+        @Override public synchronized void deleteSession(String h) { sessions.remove(h); }
+        @Override public synchronized void deleteSessionsOf(String userId) { sessions.values().removeIf(s -> s.userId().equals(userId)); }
+        @Override public synchronized int deleteExpiredSessions(Instant now) {
+            int before = sessions.size();
+            sessions.values().removeIf(s -> !s.expiresAt().isAfter(now));
+            return before - sessions.size();
+        }
     }
 }

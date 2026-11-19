@@ -1,7 +1,10 @@
 package com.databridge.app;
 
+import com.databridge.app.http.Auth;
 import com.databridge.app.http.Endpoints;
 import com.databridge.app.http.Json;
+import com.databridge.core.security.PasswordHasher;
+import com.databridge.core.security.UserService;
 import com.databridge.core.service.AuditLog;
 import com.databridge.core.service.FindingService;
 import com.databridge.core.service.IntakeService;
@@ -11,6 +14,7 @@ import com.databridge.core.service.RetentionService;
 import com.databridge.core.service.SetupService;
 import com.databridge.core.workspace.WorkspaceManagers;
 import com.databridge.store.jdbc.JdbcRepositories;
+import com.databridge.store.jdbc.JdbcUserRepository;
 import com.databridge.store.jdbc.JdbcValidationRepositories;
 import com.databridge.store.jdbc.SchemaMigrator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import java.net.InetSocketAddress;
 import java.sql.Connection;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -92,7 +97,20 @@ public final class DataBridgeServer implements AutoCloseable {
                     vrepos.findings(), workspaces, audit, clock);
             FindingService findings = new FindingService(vrepos.checks(), vrepos.findings(), migrations, audit, clock);
             RetentionService retention = new RetentionService(setups, workspaces, audit);
-            Services services = new Services(setups, migrations, intake, retention, audit, rules, findings);
+            UserService users = new UserService(new JdbcUserRepository(ds), new PasswordHasher(), audit, clock,
+                    Duration.ofMinutes(config.sessionIdleMinutes()), Duration.ofHours(config.sessionAbsoluteHours()));
+            Auth.Mode mode = config.authMode().equals("none") ? Auth.Mode.NONE : Auth.Mode.LOCAL;
+            if (mode == Auth.Mode.LOCAL) {
+                users.bootstrap(config.adminPassword()).ifPresent(pw -> System.out.println(
+                        "\n  DataBridge created the first administrator.\n"
+                        + "    username: admin\n    temporary password: "
+                        + (config.adminPassword().isBlank() ? pw : "(the one set in auth.initialAdminPassword)") + "\n"
+                        + "  Sign in and change it now; it is not shown again.\n"));
+            } else {
+                LOG.warn("Sign-in is OFF (auth.mode=none): every local caller has every role. Development only.");
+            }
+            Services services = new Services(setups, migrations, intake, retention, audit, rules, findings, users,
+                    config.authMode());
 
             if (retention.sweepOnStartup()) sweep(retention);
 
@@ -100,7 +118,7 @@ public final class DataBridgeServer implements AutoCloseable {
             ApiRoutes routes = new ApiRoutes(services, () -> ping(ds), json);
             Undertow undertow = Undertow.builder()
                     .addHttpListener(config.port(), config.host())
-                    .setHandler(routes.build(new Endpoints(json)))
+                    .setHandler(routes.build(new Endpoints(json, new Auth(mode, users, config.secureCookie()))))
                     .build();
             undertow.start();
 
@@ -112,6 +130,11 @@ public final class DataBridgeServer implements AutoCloseable {
             scheduler.scheduleWithFixedDelay(() -> {
                         intake.sweepSubmissions();
                         sweep(retention);
+                        try {
+                            users.sweepSessions();
+                        } catch (RuntimeException e) {
+                            LOG.error("Session sweep failed: {}", e.getMessage());
+                        }
                     },
                     config.sweepIntervalMinutes(), config.sweepIntervalMinutes(), TimeUnit.MINUTES);
             return new DataBridgeServer(ds, undertow, scheduler);

@@ -1,5 +1,6 @@
 package com.databridge.app.http;
 
+import com.databridge.core.security.AuthException;
 import com.databridge.core.service.NotFoundException;
 import com.databridge.core.service.ValidationException;
 import com.databridge.core.setup.SetupException;
@@ -26,16 +27,26 @@ public final class Endpoints {
     private static final Logger LOG = LoggerFactory.getLogger(Endpoints.class);
 
     private final ObjectMapper json;
+    private final Auth auth;
 
-    public Endpoints(ObjectMapper json) {
+    public Endpoints(ObjectMapper json, Auth auth) {
         this.json = json;
+        this.auth = auth;
     }
 
+    /** An endpoint any signed-in user may call. */
     public HttpHandler handler(Endpoint endpoint) {
+        return handler(Access.ANY, endpoint);
+    }
+
+    public HttpHandler handler(Access access, Endpoint endpoint) {
         return new BlockingHandler(exchange -> {
             Response r;
             try {
-                r = endpoint.handle(new Request(exchange, json));
+                auth.check(exchange, access);
+                r = endpoint.handle(new Request(exchange, json, auth));
+            } catch (AuthException e) {
+                r = Response.of(e.forbidden() ? 403 : 401, ApiError.of(e.getMessage()));
             } catch (NotFoundException e) {
                 r = Response.of(404, ApiError.of(e.getMessage()));
             } catch (ValidationException | SetupException e) {
