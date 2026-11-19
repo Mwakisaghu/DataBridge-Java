@@ -8,7 +8,7 @@ them, reconciles opening balances and produces import-ready Configuration Packag
 
 | Folder | What it is | Status |
 | --- | --- | --- |
-| `databridge-core/` | Framework-free engine: domain model, setups, schema registry, workspaces, services, CLI | Phase 0 |
+| `databridge-core/` | Framework-free engine: domain model, setups, schema registry, validation engine, workspaces, services, CLI | Phase 0-1 |
 | `databridge-store-jdbc/` | Versioned SQL scripts per database, built-in migrator, database-neutral JDBC repositories | Phase 0 |
 | `databridge-app/` | Undertow REST server, no framework: routes, scheduled purge, hand wiring | Phase 0 |
 | `DataBridge-Java/` | Legacy Undertow prototype and its 9 hand-coded validators | Retired in Phase 1; kept for reference |
@@ -24,6 +24,12 @@ Why three modules: [ADR 0003](docs/adr/0003-core-store-app-modules.md).
    ([ADR 0002](docs/adr/0002-setup-driven-configuration.md)).
 3. **Fail closed.** A step that crashes is reported as ERROR, never as a pass.
 
+## Sample data
+
+`samples/databridge-sample-data/` holds a synthetic template set (invented people and numbers):
+a clean copy, a copy with planted errors and the answer key. The golden tests require DataBridge
+to find exactly the planted errors. See its README.
+
 ## Build
 
 Requires JDK 17+ and Maven 3.9+. Use `verify` (not `test`): the store and app tests use the core test-jar.
@@ -37,6 +43,7 @@ mvn -q verify
 ```bash
 java -jar databridge-core/target/databridge-core-cli.jar --help
 java -jar databridge-core/target/databridge-core-cli.jar schema Static_Data_Templates.xlsx --out target/schema-registry.json
+java -jar databridge-core/target/databridge-core-cli.jar validate samples/databridge-sample-data/with-errors/*.xlsx --out target/register.xlsx
 java -jar databridge-core/target/databridge-core-cli.jar purge --all
 java -jar databridge-core/target/databridge-core-cli.jar setup --setup setup-example
 ```
@@ -100,6 +107,15 @@ curl -X POST "http://127.0.0.1:8085/api/runs/$RUN_ID/datasets?kind=STATIC&fileNa
 | GET, POST | `/api/runs/{runId}`, `/api/runs/{runId}/close` | A run; close it to stop uploads |
 | POST | `/api/runs/{runId}/datasets?kind=STATIC&fileName=...` | Upload a workbook (raw body): 201, or 422 if it could not be read |
 | GET | `/api/runs/{runId}/datasets`, `/api/datasets/{id}`, `/api/datasets/{id}/schema` | Dataset versions and their schema |
+| POST | `/api/runs/{runId}/submissions` | Open a submission: a workspace for a run's workbooks, validated together |
+| POST | `/api/submissions/{id}/files?kind=STATIC&fileName=...` | Add a workbook (raw body); one per kind |
+| POST | `/api/submissions/{id}/process` | Record, validate and destroy the files: 201, or 422 when a workbook could not be read |
+| DELETE | `/api/submissions/{id}` | Cancel and destroy the files |
+| GET | `/api/runs/{runId}/checks`, `/api/checks/{id}` | Validation checks: counts, readiness, sheet quality, rules not checked |
+| GET | `/api/checks/{id}/findings?severity=&status=&sheet=&ruleType=&offset=&limit=` | Findings, masked values only |
+| GET | `/api/checks/{id}/register.xlsx` | Exception register as Excel |
+| POST | `/api/findings/{id}/waiver`, `/api/findings/{id}/waiver/decision` | Maker-checker waiver: request with a reason; a different user approves or rejects |
+| GET, PUT, DELETE | `/api/setup/rules`, `/api/setup/rules/{id}` | Rule Setup: shipped defaults, stored overrides |
 | POST | `/api/retention/purge?scope=all` | Destroy every client workspace now (`scope=expired` for expired only) |
 | GET | `/api/audit?entityType=&entityId=&limit=` | Audit trail, newest first |
 
@@ -110,6 +126,7 @@ curl -X POST "http://127.0.0.1:8085/api/runs/$RUN_ID/datasets?kind=STATIC&fileNa
 | DataBridge Setup | `databridge_setup` table, `/api/setup` | Workspace folder, finding value masking, upload limit, caption search depth |
 | Retention Setup | same row, `retention` block | When workspaces are destroyed, secure overwrite, startup sweep |
 | Template Setup | `template_setup_sheet` and `template_setup_field` tables, `/api/setup/templates` | Per sheet: BC table and ID, caption row, column types, required columns |
+| Rule Setup | `rule_setup` table, `/api/setup/rules` | Formats (KRA PIN, phone, email), uniqueness, references across sheets and workbooks, group totals, comparisons |
 
 Shipped defaults live in `databridge-core/src/main/resources/setup/`. Stored setups override them; the
 CLI reads the same JSON shape from a `--setup` folder.

@@ -64,6 +64,13 @@ public final class Endpoints {
             exchange.endExchange();
             return;
         }
+        if (r.body() instanceof byte[] data) {
+            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, r.contentType());
+            String name = r.fileName() == null ? "download" : r.fileName().replaceAll("[^A-Za-z0-9._ -]", "_");
+            exchange.getResponseHeaders().put(Headers.CONTENT_DISPOSITION, "attachment; filename=\"" + name + "\"");
+            exchange.getResponseSender().send(ByteBuffer.wrap(data));
+            return;
+        }
         String text = r.rawJson() ? (String) r.body() : json.writeValueAsString(r.body());
         exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
         exchange.getResponseSender().send(ByteBuffer.wrap(text.getBytes(StandardCharsets.UTF_8)));

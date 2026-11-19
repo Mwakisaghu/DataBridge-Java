@@ -14,6 +14,7 @@ import com.databridge.core.schema.TableSchema;
 import com.databridge.core.service.AuditLog;
 import com.databridge.core.service.IntakeResult;
 import com.databridge.core.service.IntakeService;
+import com.databridge.core.service.SubmissionResult;
 import com.databridge.core.service.MigrationService;
 import com.databridge.core.service.NotFoundException;
 import com.databridge.core.service.RetentionService;
@@ -58,7 +59,8 @@ public final class ApiRoutes {
         }
     }
 
-    public record IntakeResponse(DatasetView dataset, List<SheetSummary> sheets) { }
+    /** A recorded upload, its sheets and (for a single upload) the check that validated it. */
+    public record IntakeResponse(DatasetView dataset, List<SheetSummary> sheets, ValidationRoutes.CheckView check) { }
 
     public record Health(String status, String database) { }
 
@@ -71,6 +73,7 @@ public final class ApiRoutes {
     @FunctionalInterface
     public interface DatabaseProbe { boolean ok(); }
 
+    private final Services services;
     private final SetupService setups;
     private final MigrationService migrations;
     private final IntakeService intake;
@@ -79,13 +82,13 @@ public final class ApiRoutes {
     private final DatabaseProbe probe;
     private final ObjectMapper mergeMapper;
 
-    public ApiRoutes(SetupService setups, MigrationService migrations, IntakeService intake, RetentionService retention,
-                     AuditLog audit, DatabaseProbe probe, ObjectMapper json) {
-        this.setups = setups;
-        this.migrations = migrations;
-        this.intake = intake;
-        this.retention = retention;
-        this.audit = audit;
+    public ApiRoutes(Services services, DatabaseProbe probe, ObjectMapper json) {
+        this.services = services;
+        this.setups = services.setups();
+        this.migrations = services.migrations();
+        this.intake = services.intake();
+        this.retention = services.retention();
+        this.audit = services.audit();
         this.probe = probe;
         this.mergeMapper = json.copy()
                 .setDefaultMergeable(true)
@@ -146,6 +149,8 @@ public final class ApiRoutes {
         r.get("/api/audit", e.handler(q -> Response.ok(audit.list(q.query("entityType"), q.query("entityId"),
                 integer(q.query("limit"), 100)))));
 
+        new ValidationRoutes(services).register(r, e);
+
         r.setFallbackHandler(e.status(404, "No such endpoint"));
         r.setInvalidMethodHandler(e.status(405, "Method not allowed on this endpoint"));
         return r;
@@ -196,10 +201,12 @@ public final class ApiRoutes {
         } catch (IllegalArgumentException ex) {
             throw new ValidationException("kind must be STATIC, TRANSACTIONAL, HR or OTHER");
         }
-        IntakeResult r = intake.intake(q.path("runId"), kind, q.requiredQuery("fileName"), q.stream(), q.actor());
+        SubmissionResult res = intake.intakeChecked(q.path("runId"), kind, q.requiredQuery("fileName"), q.stream(), q.actor());
+        IntakeResult r = res.datasets().get(0);
         List<SheetSummary> sheets = r.schema() == null ? List.of()
                 : r.schema().sheets().stream().map(SheetSummary::of).toList();
-        return Response.of(r.succeeded() ? 201 : 422, new IntakeResponse(DatasetView.of(r.dataset()), sheets));
+        ValidationRoutes.CheckView check = new ValidationRoutes(services).view(res.check());
+        return Response.of(r.succeeded() ? 201 : 422, new IntakeResponse(DatasetView.of(r.dataset()), sheets, check));
     }
 
     private Response purge(Request q) {

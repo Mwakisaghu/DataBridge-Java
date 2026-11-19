@@ -111,6 +111,7 @@ class JdbcRepositoriesTest {
         List<String> tables = jdbc.query("SELECT LOWER(TABLE_NAME) AS t FROM INFORMATION_SCHEMA.TABLES "
                 + "WHERE TABLE_SCHEMA = 'PUBLIC' ORDER BY t", rs -> rs.getString("t"));
         assertEquals(List.of("audit_event", "client", "databridge_schema_history", "databridge_setup", "dataset_version",
-                "migration_run", "project", "template_setup_field", "template_setup_sheet"), tables);
+                "finding", "migration_run", "project", "rule_setup", "template_setup_field", "template_setup_sheet",
+                "validation_check"), tables);
     }
 }

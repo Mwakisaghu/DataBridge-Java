@@ -130,6 +130,58 @@ class ApiServerTest {
     }
 
     @Test
+    void submissionValidatesWorkbooksTogetherAndWaiversAreMakerChecker() throws Exception {
+        String runId = openRun("SUBMIT");
+        Reply sub = call("POST", "/api/runs/" + runId + "/submissions", null);
+        assertEquals(201, sub.status(), sub.text());
+        String sid = sub.body().get("id").asText();
+        Reply file = send("POST", "/api/submissions/" + sid + "/files?kind=STATIC&fileName=Static.xlsx", "application/octet-stream",
+                HttpRequest.BodyPublishers.ofByteArray(com.databridge.core.service.FindingServiceTestData.members()));
+        assertEquals(201, file.status(), file.text());
+        Reply done = call("POST", "/api/submissions/" + sid + "/process", null);
+        assertEquals(201, done.status(), done.text());
+        JsonNode check = done.body().get("check");
+        assertEquals("FAILED", check.get("status").asText());
+        assertEquals(2, check.get("critical").asInt());
+        assertEquals(404, call("GET", "/api/submissions/" + sid, null).status(), "processed submissions are gone");
+
+        String checkId = check.get("id").asText();
+        Reply page = call("GET", "/api/checks/" + checkId + "/findings?severity=critical&limit=1", null);
+        assertEquals(2, page.body().get("total").asInt());
+        String fid = page.body().get("items").get(0).get("id").asText();
+        assertFalse(page.text().contains("A12345678\""), "values masked");
+
+        assertEquals(200, call("POST", "/api/findings/" + fid + "/waiver", "{\"reason\":\"Confirmed with the client\"}").status());
+        Reply self = call("POST", "/api/findings/" + fid + "/waiver/decision", "{\"approve\":true}");
+        assertEquals(400, self.status(), "same user cannot approve");
+        HttpRequest other = HttpRequest.newBuilder(URI.create(base + "/api/findings/" + fid + "/waiver/decision"))
+                .header("X-DataBridge-User", "reviewer").header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"approve\":true,\"note\":\"ok\"}")).build();
+        assertEquals(200, http.send(other, HttpResponse.BodyHandlers.ofString()).statusCode());
+
+        HttpResponse<byte[]> xlsx = http.send(HttpRequest.newBuilder(URI.create(base + "/api/checks/" + checkId + "/register.xlsx")).build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, xlsx.statusCode());
+        assertTrue(xlsx.headers().firstValue("Content-Disposition").orElse("").contains("exception-register-check-1.xlsx"));
+        assertEquals('P', (char) xlsx.body()[0], "a zip-based .xlsx");
+
+        Reply checks = call("GET", "/api/runs/" + runId + "/checks", null);
+        assertEquals(1, checks.body().size());
+        assertTrue(checks.body().get(0).get("counts").toString().contains("WAIVED"));
+    }
+
+    @Test
+    void ruleSetupCanBeReadAndChanged() throws Exception {
+        Reply rules = call("GET", "/api/setup/rules", null);
+        assertTrue(rules.body().size() >= 40);
+        Reply put = call("PUT", "/api/setup/rules/members.email",
+                "{\"type\":\"FORMAT\",\"sheet\":\"Members\",\"field\":\"E-Mail\",\"severity\":\"INFO\",\"pattern\":\"EMAIL\"}");
+        assertEquals(200, put.status(), put.text());
+        assertEquals(400, call("PUT", "/api/setup/rules/x.y", "{\"type\":\"FORMAT\",\"sheet\":\"Members\",\"field\":\"Name\"}").status());
+        assertEquals(204, call("DELETE", "/api/setup/rules/members.email", null).status());
+    }
+
+    @Test
     void healthReportsDatabase() throws Exception {
         Reply r = call("GET", "/health", null);
         assertEquals(200, r.status());

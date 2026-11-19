@@ -1,6 +1,17 @@
 package com.databridge.core.port.memory;
 
 import com.databridge.core.domain.AuditEvent;
+import com.databridge.core.domain.FindingCount;
+import com.databridge.core.domain.FindingFilter;
+import com.databridge.core.domain.StoredFinding;
+import com.databridge.core.domain.ValidationCheck;
+import com.databridge.core.finding.FindingStatus;
+import com.databridge.core.finding.Severity;
+import com.databridge.core.port.CheckRepository;
+import com.databridge.core.port.FindingRepository;
+import com.databridge.core.port.RuleRepository;
+import com.databridge.core.setup.SetupLoader;
+import com.databridge.core.validation.RuleDef;
 import com.databridge.core.domain.Client;
 import com.databridge.core.domain.DatasetVersion;
 import com.databridge.core.domain.MigrationRun;
@@ -120,5 +131,71 @@ public final class InMemoryRepositories {
         @Override public synchronized boolean deleteSheet(String name) {
             return sheets.remove(TemplateSetup.normalise(name)) != null;
         }
+    }
+
+    public static final class Checks implements CheckRepository {
+        private final Map<String, ValidationCheck> rows = new LinkedHashMap<>();
+        @Override public synchronized void insert(ValidationCheck c) { rows.put(c.id(), c); }
+        @Override public synchronized Optional<ValidationCheck> find(String id) { return Optional.ofNullable(rows.get(id)); }
+        @Override public synchronized List<ValidationCheck> listByRun(String runId) {
+            return rows.values().stream().filter(c -> c.runId().equals(runId))
+                    .sorted(Comparator.comparingInt(ValidationCheck::checkNo).reversed()).toList();
+        }
+        @Override public synchronized int maxCheckNo(String runId) {
+            return rows.values().stream().filter(c -> c.runId().equals(runId)).mapToInt(ValidationCheck::checkNo).max().orElse(0);
+        }
+    }
+
+    public static final class Findings implements FindingRepository {
+        private final Map<String, StoredFinding> rows = new LinkedHashMap<>();
+        private static final Comparator<StoredFinding> ORDER = Comparator.comparing(StoredFinding::severity)
+                .thenComparing(f -> String.valueOf(f.sheet())).thenComparingInt(StoredFinding::rowNo).thenComparing(StoredFinding::id);
+        @Override public synchronized void insertAll(List<StoredFinding> fs) { fs.forEach(f -> rows.put(f.id(), f)); }
+        @Override public synchronized Optional<StoredFinding> find(String id) { return Optional.ofNullable(rows.get(id)); }
+        @Override public synchronized void update(StoredFinding f) {
+            if (!rows.containsKey(f.id())) throw new IllegalStateException("No finding " + f.id());
+            rows.put(f.id(), f);
+        }
+        @Override public synchronized List<StoredFinding> list(String checkId, FindingFilter filter, int offset, int limit) {
+            return rows.values().stream().filter(f -> f.checkId().equals(checkId) && filter.matches(f)).sorted(ORDER)
+                    .skip(offset).limit(limit).toList();
+        }
+        @Override public synchronized int count(String checkId, FindingFilter filter) {
+            return (int) rows.values().stream().filter(f -> f.checkId().equals(checkId) && filter.matches(f)).count();
+        }
+        @Override public synchronized List<FindingCount> counts(String checkId) {
+            Map<String, Integer> n = new LinkedHashMap<>();
+            rows.values().stream().filter(f -> f.checkId().equals(checkId))
+                    .forEach(f -> n.merge(f.severity() + "|" + f.status(), 1, Integer::sum));
+            List<FindingCount> out = new ArrayList<>();
+            n.forEach((k, v) -> {
+                String[] p = k.split("\\|");
+                out.add(new FindingCount(Severity.valueOf(p[0]), FindingStatus.valueOf(p[1]), v));
+            });
+            return out;
+        }
+    }
+
+    public static final class Rules implements RuleRepository {
+        private final Map<String, String> rows = new LinkedHashMap<>();
+        @Override public synchronized List<RuleDef> list() {
+            List<RuleDef> out = new ArrayList<>();
+            for (String json : rows.values()) {
+                try {
+                    out.add(SetupLoader.mapper().readValue(json, RuleDef.class));
+                } catch (java.io.IOException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+            return out;
+        }
+        @Override public synchronized void save(RuleDef r, String actor, Instant at) {
+            try {
+                rows.put(r.getId(), SetupLoader.mapper().writeValueAsString(r));
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        @Override public synchronized boolean delete(String id) { return rows.remove(id) != null; }
     }
 }

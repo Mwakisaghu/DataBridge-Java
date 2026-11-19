@@ -1,0 +1,440 @@
+[
+  {
+    "id": "members.no.required",
+    "type": "REQUIRED",
+    "sheet": "Members",
+    "field": "No.",
+    "severity": "CRITICAL",
+    "description": "Members must have a No."
+  },
+  {
+    "id": "members.name.required",
+    "type": "REQUIRED",
+    "sheet": "Members",
+    "field": "Name",
+    "severity": "CRITICAL",
+    "description": "Members must have a Name"
+  },
+  {
+    "id": "savings.no.required",
+    "type": "REQUIRED",
+    "sheet": "Savings Accounts",
+    "field": "No.",
+    "severity": "CRITICAL",
+    "description": "Savings Accounts must have a No."
+  },
+  {
+    "id": "savings.member-no.required",
+    "type": "REQUIRED",
+    "sheet": "Savings Accounts",
+    "field": "Member No.",
+    "severity": "CRITICAL",
+    "description": "Savings Accounts must have a Member No."
+  },
+  {
+    "id": "loans.loan-no.required",
+    "type": "REQUIRED",
+    "sheet": "Loans",
+    "field": "Loan No.",
+    "severity": "CRITICAL",
+    "description": "Loans must have a Loan No."
+  },
+  {
+    "id": "loans.member-no.required",
+    "type": "REQUIRED",
+    "sheet": "Loans",
+    "field": "Member No.",
+    "severity": "CRITICAL",
+    "description": "Loans must have a Member No."
+  },
+  {
+    "id": "nominee.member-no.required",
+    "type": "REQUIRED",
+    "sheet": "Nominee & BBF",
+    "field": "Member no",
+    "severity": "CRITICAL",
+    "description": "Nominee & BBF must have a Member no"
+  },
+  {
+    "id": "loan.loan-no.required",
+    "type": "REQUIRED",
+    "sheet": "Loan Guarantors and Security",
+    "field": "Loan No",
+    "severity": "CRITICAL",
+    "description": "Loan Guarantors and Security must have a Loan No"
+  },
+  {
+    "id": "employee.no.required",
+    "type": "REQUIRED",
+    "sheet": "Employee Upload",
+    "field": "No.",
+    "severity": "CRITICAL",
+    "description": "Employee Upload must have a No."
+  },
+  {
+    "id": "members.kra-pin",
+    "type": "FORMAT",
+    "sheet": "Members",
+    "field": "P.I.N Number",
+    "severity": "CRITICAL",
+    "pattern": "KRA_PIN",
+    "description": "Member KRA PIN format"
+  },
+  {
+    "id": "members.phone",
+    "type": "FORMAT",
+    "sheet": "Members",
+    "field": "Phone No.",
+    "severity": "WARNING",
+    "pattern": "KE_PHONE",
+    "autoFixable": true,
+    "description": "Member phone in +254 format"
+  },
+  {
+    "id": "members.email",
+    "type": "FORMAT",
+    "sheet": "Members",
+    "field": "E-Mail",
+    "severity": "WARNING",
+    "pattern": "EMAIL",
+    "description": "Member email address"
+  },
+  {
+    "id": "customers.kra-pin",
+    "type": "FORMAT",
+    "sheet": "Customer Employer_Tenant",
+    "field": "KRA PIN",
+    "severity": "CRITICAL",
+    "pattern": "KRA_PIN",
+    "description": "Employer KRA PIN format"
+  },
+  {
+    "id": "vendors.kra-pin",
+    "type": "FORMAT",
+    "sheet": "Vendor_Debt Collectors",
+    "field": "KRA Pin No.",
+    "severity": "CRITICAL",
+    "pattern": "KRA_PIN",
+    "description": "Vendor KRA PIN format"
+  },
+  {
+    "id": "employees.kra-pin",
+    "type": "FORMAT",
+    "sheet": "Employee Upload",
+    "field": "PIN No.",
+    "severity": "CRITICAL",
+    "pattern": "KRA_PIN",
+    "description": "Employee KRA PIN format"
+  },
+  {
+    "id": "members.no.unique",
+    "type": "UNIQUE",
+    "sheet": "Members",
+    "field": "No.",
+    "severity": "CRITICAL",
+    "description": "Member numbers are unique"
+  },
+  {
+    "id": "members.id.unique",
+    "type": "UNIQUE",
+    "sheet": "Members",
+    "field": "Primary Identification",
+    "severity": "CRITICAL",
+    "description": "One member per ID number"
+  },
+  {
+    "id": "savings.no.unique",
+    "type": "UNIQUE",
+    "sheet": "Savings Accounts",
+    "field": "No.",
+    "severity": "CRITICAL",
+    "autoFixable": true,
+    "description": "Account numbers are unique"
+  },
+  {
+    "id": "loans.no.unique",
+    "type": "UNIQUE",
+    "sheet": "Loans",
+    "field": "Loan No.",
+    "severity": "CRITICAL",
+    "description": "Loan numbers are unique"
+  },
+  {
+    "id": "coa.no.unique",
+    "type": "UNIQUE",
+    "sheet": "Chart of Account",
+    "field": "No.",
+    "severity": "CRITICAL",
+    "description": "G/L account numbers are unique"
+  },
+  {
+    "id": "employees.no.unique",
+    "type": "UNIQUE",
+    "sheet": "Employee Upload",
+    "field": "No.",
+    "severity": "CRITICAL",
+    "description": "Employee numbers are unique"
+  },
+  {
+    "id": "nominees.member",
+    "type": "REFERENCE",
+    "sheet": "Nominee & BBF",
+    "field": "Member no",
+    "severity": "CRITICAL",
+    "targetSheet": "Members",
+    "targetField": "No.",
+    "description": "Every nominee belongs to a member"
+  },
+  {
+    "id": "savings.member",
+    "type": "REFERENCE",
+    "sheet": "Savings Accounts",
+    "field": "Member No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Members",
+    "targetField": "No.",
+    "description": "Every account belongs to a member"
+  },
+  {
+    "id": "loans.member",
+    "type": "REFERENCE",
+    "sheet": "Loans",
+    "field": "Member No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Members",
+    "targetField": "No.",
+    "description": "Every loan belongs to a member"
+  },
+  {
+    "id": "guarantors.loan",
+    "type": "REFERENCE",
+    "sheet": "Loan Guarantors and Security",
+    "field": "Loan No",
+    "severity": "CRITICAL",
+    "targetSheet": "Loans",
+    "targetField": "Loan No.",
+    "description": "Guarantees are for existing loans"
+  },
+  {
+    "id": "guarantors.member",
+    "type": "REFERENCE",
+    "sheet": "Loan Guarantors and Security",
+    "field": "Guarantor Member No",
+    "severity": "CRITICAL",
+    "targetSheet": "Members",
+    "targetField": "No.",
+    "description": "Guarantors are members"
+  },
+  {
+    "id": "securities.loan",
+    "type": "REFERENCE",
+    "sheet": "Securities Register",
+    "field": "Loan No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Loans",
+    "targetField": "Loan No.",
+    "description": "Securities are for existing loans"
+  },
+  {
+    "id": "standing-orders.account",
+    "type": "REFERENCE",
+    "sheet": "Standing Order Header",
+    "field": "Source Account No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Savings Accounts",
+    "targetField": "No.",
+    "description": "Standing orders draw on existing accounts"
+  },
+  {
+    "id": "standing-order-lines.loan",
+    "type": "REFERENCE",
+    "sheet": "Standing Order Lines",
+    "field": "Loan No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Loans",
+    "targetField": "Loan No.",
+    "description": "Standing orders pay existing loans"
+  },
+  {
+    "id": "salary-lines.account",
+    "type": "REFERENCE",
+    "sheet": "Salary Lines",
+    "field": "Account No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Savings Accounts",
+    "targetField": "No.",
+    "description": "Salaries go to existing accounts"
+  },
+  {
+    "id": "signatories.member",
+    "type": "REFERENCE",
+    "sheet": "Account Signatories",
+    "field": "Member No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Members",
+    "targetField": "No.",
+    "description": "Signatories are members"
+  },
+  {
+    "id": "delegates.member",
+    "type": "REFERENCE",
+    "sheet": "Delegate Members",
+    "field": "Delegate MNO.",
+    "severity": "CRITICAL",
+    "targetSheet": "Members",
+    "targetField": "No.",
+    "description": "Delegates are members"
+  },
+  {
+    "id": "dividend-instructions.account",
+    "type": "REFERENCE",
+    "sheet": "Dividend Instruction",
+    "field": "Account No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Savings Accounts",
+    "targetField": "No.",
+    "description": "Dividend instructions use existing accounts"
+  },
+  {
+    "id": "bosa-loans.loan",
+    "type": "REFERENCE",
+    "sheet": "BOSA LOANS",
+    "field": "Loan Number",
+    "severity": "CRITICAL",
+    "targetSheet": "Loans",
+    "targetField": "Loan No.",
+    "description": "Every BOSA loan balance has a loan in the static data"
+  },
+  {
+    "id": "fosa-loans.loan",
+    "type": "REFERENCE",
+    "sheet": "FOSA LOANS",
+    "field": "Loan Number",
+    "severity": "CRITICAL",
+    "targetSheet": "Loans",
+    "targetField": "Loan No.",
+    "description": "Every FOSA loan balance has a loan in the static data"
+  },
+  {
+    "id": "bosa-savings.account",
+    "type": "REFERENCE",
+    "sheet": "BOSA SAVINGS AC",
+    "field": "Account No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Savings Accounts",
+    "targetField": "No.",
+    "description": "Every BOSA balance has an account in the static data"
+  },
+  {
+    "id": "fosa-savings.account",
+    "type": "REFERENCE",
+    "sheet": "FOSA SAVINGS AC",
+    "field": "Account No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Savings Accounts",
+    "targetField": "No.",
+    "description": "Every FOSA balance has an account in the static data"
+  },
+  {
+    "id": "customer-balances.customer",
+    "type": "REFERENCE",
+    "sheet": "CUSTOMER BALANCES",
+    "field": "Customer No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Customer Employer_Tenant",
+    "targetField": "No.",
+    "description": "Every customer balance has a customer"
+  },
+  {
+    "id": "vendor-balances.vendor",
+    "type": "REFERENCE",
+    "sheet": "VENDOR BALANCES",
+    "field": "No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Vendor_Debt Collectors",
+    "targetField": "No.",
+    "description": "Every vendor balance has a vendor"
+  },
+  {
+    "id": "fixed-asset-balances.asset",
+    "type": "REFERENCE",
+    "sheet": "FIXED ASSETS",
+    "field": "Asset no",
+    "severity": "CRITICAL",
+    "targetSheet": "Fixed Asset",
+    "targetField": "No.",
+    "description": "Every asset balance has a fixed asset"
+  },
+  {
+    "id": "bank-balances.bank",
+    "type": "REFERENCE",
+    "sheet": "BANK BALANCES",
+    "field": "No",
+    "severity": "CRITICAL",
+    "targetSheet": "Bank Account",
+    "targetField": "No.",
+    "description": "Every bank balance has a bank account"
+  },
+  {
+    "id": "trial-balance.account",
+    "type": "REFERENCE",
+    "sheet": "TRIAL BALANCE",
+    "field": "No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Chart of Account",
+    "targetField": "No.",
+    "description": "Trial balance accounts exist in the chart of accounts"
+  },
+  {
+    "id": "employees.member",
+    "type": "REFERENCE",
+    "sheet": "Employee Upload",
+    "field": "Member No.",
+    "severity": "CRITICAL",
+    "targetSheet": "Members",
+    "targetField": "No.",
+    "description": "Staff member numbers exist in Members"
+  },
+  {
+    "id": "nominees.allocation-100",
+    "type": "SUM_EQUALS",
+    "sheet": "Nominee & BBF",
+    "field": "Allocation",
+    "severity": "WARNING",
+    "groupBy": "Member no",
+    "whereField": "Is Nominee",
+    "whereEquals": "true",
+    "expected": 100,
+    "description": "Nominee allocations add up to 100% per member"
+  },
+  {
+    "id": "loans.approved-within-requested",
+    "type": "COMPARE",
+    "sheet": "Loans",
+    "field": "Approved Amount",
+    "severity": "WARNING",
+    "operator": "LE",
+    "otherField": "Requested Amount",
+    "description": "Approved amount does not exceed the requested amount"
+  },
+  {
+    "id": "loans.repayment-after-disbursement",
+    "type": "COMPARE",
+    "sheet": "Loans",
+    "field": "Repayment Start Date",
+    "severity": "CRITICAL",
+    "operator": "GE",
+    "otherField": "Disbursement Date",
+    "description": "Repayment starts on or after disbursement"
+  },
+  {
+    "id": "loans.completion-after-start",
+    "type": "COMPARE",
+    "sheet": "Loans",
+    "field": "Expected Date of Completion",
+    "severity": "CRITICAL",
+    "operator": "GE",
+    "otherField": "Repayment Start Date",
+    "description": "Expected completion is not before repayment starts"
+  }
+]

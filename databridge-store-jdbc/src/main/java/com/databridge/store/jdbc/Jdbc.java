@@ -80,6 +80,19 @@ public final class Jdbc {
         }
     }
 
+    /** Runs one statement for every parameter set, in batches, inside an open connection. */
+    public static void batch(Connection c, String sql, List<Object[]> rows) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            int n = 0;
+            for (Object[] params : rows) {
+                bind(ps, params);
+                ps.addBatch();
+                if (++n % 500 == 0) ps.executeBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
     public static int update(Connection c, String sql, Object... params) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             bind(ps, params);

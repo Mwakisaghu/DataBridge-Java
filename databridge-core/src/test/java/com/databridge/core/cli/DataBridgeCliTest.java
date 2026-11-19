@@ -89,4 +89,24 @@ class DataBridgeCliTest {
     void unknownOptionIsUsageError() {
         assertEquals(DataBridgeCli.USAGE, run("schema", "--colour", "red"));
     }
+
+    @Test
+    void validateTheSampleSetWritesARegisterAndExitsThreeOnCriticalFindings() throws Exception {
+        java.nio.file.Path dir = com.databridge.core.service.Samples.dir().resolve("with-errors");
+        java.nio.file.Path reg = tmp.resolve("register.xlsx");
+        int code = run("validate", dir.resolve("Sample Static Data Templates.xlsx").toString(),
+                dir.resolve("Sample HR Data Templates.xlsx").toString(),
+                dir.resolve("Sample Transactional Data Templates.xlsx").toString(), "--out", reg.toString(), "--setup", setupDir().toString());
+        assertEquals(DataBridgeCli.FINDINGS, code, err.toString());
+        assertTrue(out.toString().startsWith("FAILED: 2686 row(s), 63 critical, 6 warning(s)"), out.toString());
+        assertFalse(out.toString().contains("not checked"), "full set: every rule runs");
+        assertTrue(Files.size(reg) > 1000);
+    }
+
+    @Test
+    void kindIsTakenFromTheFileName() {
+        assertEquals(com.databridge.core.domain.TemplateKind.TRANSACTIONAL, DataBridgeCli.kindOf("Transactional Data Templates.xlsx"));
+        assertEquals(com.databridge.core.domain.TemplateKind.HR, DataBridgeCli.kindOf("HR Data Templates..xlsx"));
+        assertEquals(com.databridge.core.domain.TemplateKind.STATIC, DataBridgeCli.kindOf("Static Data Templates.xlsx"));
+    }
 }

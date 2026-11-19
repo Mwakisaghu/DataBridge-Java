@@ -3,12 +3,15 @@ package com.databridge.app;
 import com.databridge.app.http.Endpoints;
 import com.databridge.app.http.Json;
 import com.databridge.core.service.AuditLog;
+import com.databridge.core.service.FindingService;
 import com.databridge.core.service.IntakeService;
+import com.databridge.core.service.RuleService;
 import com.databridge.core.service.MigrationService;
 import com.databridge.core.service.RetentionService;
 import com.databridge.core.service.SetupService;
 import com.databridge.core.workspace.WorkspaceManagers;
 import com.databridge.store.jdbc.JdbcRepositories;
+import com.databridge.store.jdbc.JdbcValidationRepositories;
 import com.databridge.store.jdbc.SchemaMigrator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zaxxer.hikari.HikariConfig;
@@ -83,13 +86,18 @@ public final class DataBridgeServer implements AutoCloseable {
             SetupService setups = new SetupService(repos.setups(), audit, clock);
             MigrationService migrations = new MigrationService(repos.clients(), repos.projects(), repos.runs(), audit, clock);
             WorkspaceManagers workspaces = new WorkspaceManagers();
-            IntakeService intake = new IntakeService(migrations, repos.datasets(), setups, workspaces, audit, clock);
+            JdbcValidationRepositories vrepos = new JdbcValidationRepositories(ds);
+            RuleService rules = new RuleService(vrepos.rules(), audit, clock);
+            IntakeService intake = new IntakeService(migrations, repos.datasets(), setups, rules, vrepos.checks(),
+                    vrepos.findings(), workspaces, audit, clock);
+            FindingService findings = new FindingService(vrepos.checks(), vrepos.findings(), migrations, audit, clock);
             RetentionService retention = new RetentionService(setups, workspaces, audit);
+            Services services = new Services(setups, migrations, intake, retention, audit, rules, findings);
 
             if (retention.sweepOnStartup()) sweep(retention);
 
             ObjectMapper json = Json.mapper();
-            ApiRoutes routes = new ApiRoutes(setups, migrations, intake, retention, audit, () -> ping(ds), json);
+            ApiRoutes routes = new ApiRoutes(services, () -> ping(ds), json);
             Undertow undertow = Undertow.builder()
                     .addHttpListener(config.port(), config.host())
                     .setHandler(routes.build(new Endpoints(json)))
@@ -101,7 +109,10 @@ public final class DataBridgeServer implements AutoCloseable {
                 t.setDaemon(true);
                 return t;
             });
-            scheduler.scheduleWithFixedDelay(() -> sweep(retention),
+            scheduler.scheduleWithFixedDelay(() -> {
+                        intake.sweepSubmissions();
+                        sweep(retention);
+                    },
                     config.sweepIntervalMinutes(), config.sweepIntervalMinutes(), TimeUnit.MINUTES);
             return new DataBridgeServer(ds, undertow, scheduler);
         } catch (RuntimeException e) {
