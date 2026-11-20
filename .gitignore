@@ -63,3 +63,6 @@ databridge-workspaces/
 *.csv
 # Synthetic sample data (invented people and numbers) is the one exception: it is the golden test set.
 !samples/**/*.xlsx
+
+# End-to-end run output
+e2e-output/
