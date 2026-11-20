@@ -150,7 +150,8 @@ class IntegrationServiceTest {
             java.util.regex.Matcher m = target.matcher(new String(e.getValue(), StandardCharsets.UTF_8));
             while (m.find()) {
                 String t = m.group(1);
-                String p = java.nio.file.Path.of("/" + (t.startsWith("/") ? t.substring(1) : base + t)).normalize().toString().substring(1);
+                // Zip entry names always use '/': resolve as a URI, never as a file path (backslashes on Windows).
+                String p = java.net.URI.create("/" + base).resolve(t).normalize().getPath().substring(1);
                 if (!parts.containsKey(p)) broken.add(rels + " -> " + t);
             }
         }
