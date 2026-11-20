@@ -19,6 +19,8 @@ import com.databridge.store.jdbc.JdbcReconRepository;
 import com.databridge.core.service.ReconciliationService;
 import com.databridge.core.service.CleaningService;
 import com.databridge.core.service.IntegrationService;
+import com.databridge.core.service.ReportingService;
+import com.databridge.store.jdbc.JdbcSignOffRepository;
 import com.databridge.store.jdbc.JdbcIntegrationRepository;
 import com.databridge.store.jdbc.JdbcCleaningRepository;
 import com.databridge.store.jdbc.JdbcValidationRepositories;
@@ -106,6 +108,8 @@ public final class DataBridgeServer implements AutoCloseable {
             CleaningService cleaning = new CleaningService(new JdbcCleaningRepository(ds), migrations, setups, workspaces, audit, clock);
             IntegrationService integration = new IntegrationService(new JdbcIntegrationRepository(ds), migrations, setups, rules,
                     vrepos.checks(), vrepos.findings(), repos.datasets(), workspaces, audit, clock, System::getenv);
+            ReportingService reporting = new ReportingService(migrations, vrepos.checks(), vrepos.findings(), recon, cleaning, integration,
+                    new JdbcSignOffRepository(ds), audit, clock);
             FindingService findings = new FindingService(vrepos.checks(), vrepos.findings(), migrations, audit, clock);
             RetentionService retention = new RetentionService(setups, workspaces, audit);
             UserService users = new UserService(new JdbcUserRepository(ds), new PasswordHasher(), audit, clock,
@@ -120,7 +124,7 @@ public final class DataBridgeServer implements AutoCloseable {
             } else {
                 LOG.warn("Sign-in is OFF (auth.mode=none): every local caller has every role. Development only.");
             }
-            Services services = new Services(setups, migrations, intake, retention, audit, rules, findings, users, recon, cleaning, integration,
+            Services services = new Services(setups, migrations, intake, retention, audit, rules, findings, users, recon, cleaning, integration, reporting,
                     config.authMode());
 
             if (retention.sweepOnStartup()) sweep(retention);

@@ -35,6 +35,7 @@ public final class Fixture {
     public final ReconciliationService recon;
     public final CleaningService cleaning;
     public final IntegrationService integration;
+    public final ReportingService reporting;
     public final java.util.Map<String, String> env = new java.util.HashMap<>();
     public final Path workspaceRoot;
 
@@ -68,6 +69,8 @@ public final class Fixture {
         this.findings = new FindingService(checks, findingRepo, migrations, audit, clock);
         this.integration = new IntegrationService(new InMemoryRepositories.Integration(), migrations, setups, rules, checks, findingRepo,
                 datasets, wm, audit, clock, env::get);
+        this.reporting = new ReportingService(migrations, checks, findingRepo, recon, cleaning, integration,
+                new InMemoryRepositories.SignOffs(), audit, clock);
         this.retention = new RetentionService(setups, wm, audit);
         this.workspaceRoot = tmp.resolve("workspaces");
         DataBridgeSetup g = setups.effective().general();

@@ -60,5 +60,13 @@ class JdbcIntegrationRepositoryTest {
         assertNull(loans.bcCount());
         assertNull(loans.importedRows());
         assertEquals(150L, imps.stream().filter(i -> i.sheet().equals("Members")).findFirst().orElseThrow().bcCount());
+
+        JdbcSignOffRepository so = new JdbcSignOffRepository(ds);
+        assertTrue(so.find(runId).isEmpty());
+        so.save(new com.databridge.core.domain.SignOff(runId, com.databridge.core.domain.SignOff.Status.REQUESTED, null, "[]", "h", at,
+                null, null, null, null));
+        so.save(new com.databridge.core.domain.SignOff(runId, com.databridge.core.domain.SignOff.Status.APPROVED, "DB-X", "[]", "h", at,
+                null, "f", at, "ok"));
+        assertEquals("DB-X", so.find(runId).orElseThrow().certificateNo());
     }
 }

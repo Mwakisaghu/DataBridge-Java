@@ -220,6 +220,9 @@ class AuthApiTest {
         }
 
         assertEquals(403, call("PUT", "/api/setup/reconciliation/trial-balance", "{\"sheet\":\"TB\"}", finance).status());
+        assertEquals(403, call("POST", "/api/runs/" + runId + "/signoff/decision", "{\"approve\":true}", consultant).status(),
+                "only Finance decides sign-off");
+        assertEquals(403, call("POST", "/api/runs/" + runId + "/signoff", null, finance).status(), "consultants request it");
         assertEquals(200, call("GET", "/api/setup/reconciliation", null, finance).status());
     }
 

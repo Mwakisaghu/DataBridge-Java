@@ -276,6 +276,34 @@ class ApiServerTest {
     }
 
     @Test
+    void runSummarySignOffAndExports() throws Exception {
+        String runId = openRun("REPORTS");
+        Reply sum = call("GET", "/api/runs/" + runId + "/summary", null);
+        assertEquals(200, sum.status(), sum.text());
+        assertFalse(sum.body().get("ready").asBoolean());
+        assertEquals(4, sum.body().get("checklist").size());
+        assertEquals("REPORTS", sum.body().get("client").get("code").asText());
+
+        Reply notReady = call("POST", "/api/runs/" + runId + "/signoff", null);
+        assertEquals(400, notReady.status(), "no body is fine; not being ready is not");
+        assertTrue(notReady.body().get("error").asText().startsWith("The run is not ready for sign-off"));
+        assertEquals(400, call("POST", "/api/runs/" + runId + "/signoff/decision", "{\"approve\":true}").status());
+
+        HttpResponse<byte[]> pack = http.send(HttpRequest.newBuilder(URI.create(base + "/api/runs/" + runId + "/signoff-pack.xlsx")).build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, pack.statusCode());
+        try (var wb = new XSSFWorkbook(new java.io.ByteArrayInputStream(pack.body()))) {
+            assertEquals("Not requested", wb.getSheet("Sign-off").getRow(4).getCell(1).getStringCellValue());
+        }
+        HttpResponse<byte[]> audit = http.send(HttpRequest.newBuilder(URI.create(base + "/api/audit.xlsx?limit=50")).build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, audit.statusCode());
+        try (var wb = new XSSFWorkbook(new java.io.ByteArrayInputStream(audit.body()))) {
+            assertTrue(wb.getSheet("Audit trail").getLastRowNum() >= 1);
+        }
+    }
+
+    @Test
     void healthReportsDatabase() throws Exception {
         Reply r = call("GET", "/health", null);
         assertEquals(200, r.status());

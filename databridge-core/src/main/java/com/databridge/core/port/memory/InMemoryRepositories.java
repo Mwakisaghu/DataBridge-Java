@@ -319,6 +319,12 @@ public final class InMemoryRepositories {
         }
     }
 
+    public static final class SignOffs implements com.databridge.core.port.SignOffRepository {
+        private final Map<String, com.databridge.core.domain.SignOff> rows = new LinkedHashMap<>();
+        @Override public synchronized Optional<com.databridge.core.domain.SignOff> find(String runId) { return Optional.ofNullable(rows.get(runId)); }
+        @Override public synchronized void save(com.databridge.core.domain.SignOff s) { rows.put(s.runId(), s); }
+    }
+
     public static final class Users implements UserRepository {
         private final Map<String, User> rows = new LinkedHashMap<>();
         private final Map<String, Session> sessions = new LinkedHashMap<>();

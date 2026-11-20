@@ -97,7 +97,7 @@ http://localhost:5173, choose your own password, then add people under **Users**
 | ADMIN | Everything: users, setups, rules, clearing client files |
 | CONSULTANT | Clients, projects, runs, uploads, submissions, cleaning; request waivers and explain variances |
 | REVIEWER | Decide waivers (never their own: maker-checker) |
-| FINANCE | Approve explanations of reconciliation variances; approve sign-off |
+| FINANCE | Approve explanations of reconciliation variances; approve or reject run sign-off |
 | VIEWER | Read everything, change nothing |
 
 | Setting (env) | Default | |
@@ -159,6 +159,9 @@ With `DATABRIDGE_AUTH=none`, name yourself in the `X-DataBridge-User` header ins
 | PUT | `/api/runs/{runId}/imports/{sheet}` | Record an import result `{"importedRows":150}` or `{"failed":true,"note":"..."}` |
 | POST | `/api/runs/{runId}/imports/verify` | Read record counts back from Business Central (502 when it cannot be reached) |
 | GET, PUT | `/api/setup/integration`; POST `/api/setup/integration/test` | Integration Setup and connection test (ADMIN) |
+| GET | `/api/runs/{runId}/summary` | Run KPIs, readiness trend and readiness checklist |
+| POST | `/api/runs/{runId}/signoff`, `/api/runs/{runId}/signoff/decision` | Request sign-off (CONSULTANT, when every item passes); approve or reject (FINANCE, not the requester). Approval issues the certificate and closes the run |
+| GET | `/api/runs/{runId}/signoff-pack.xlsx`, `/api/audit.xlsx` | Sign-off pack; audit trail export |
 | GET | `/api/checks/{id}/reconciliation` | Trial balance and control accounts of a check, with each variance's explanation |
 | GET | `/api/checks/{id}/reconciliation.xlsx` | Reconciliation pack as Excel |
 | GET | `/api/setup/reconciliation` | Reconciliation Setup in force: trial balance layout, control accounts |

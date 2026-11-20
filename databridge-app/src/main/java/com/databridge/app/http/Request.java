@@ -80,6 +80,12 @@ public final class Request {
         return json.readValue(exchange.getInputStream(), type);
     }
 
+    /** The JSON body, or null when the request has none. */
+    public <T> T optionalBody(Class<T> type) throws IOException {
+        JsonNode n = json.readTree(exchange.getInputStream());
+        return n == null || n.isMissingNode() || n.isNull() ? null : json.treeToValue(n, type);
+    }
+
     public JsonNode bodyTree() throws IOException {
         JsonNode n = json.readTree(exchange.getInputStream());
         if (n == null || n.isMissingNode()) throw new ValidationException("A JSON body is required");
