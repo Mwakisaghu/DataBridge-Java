@@ -47,6 +47,20 @@ a clean copy, a copy with planted errors and the answer key. The golden tests re
 to find exactly the planted errors: the 21 data errors, the unbalanced trial balance and both
 control-account variances. See its README.
 
+## End-to-end run on the sample data
+
+With the server running, one command drives two complete runs through the API as separate
+consultant, reviewer and Finance users, checking every result against the answer key: detection,
+reconciliation, variance approval, cleaning, maker-checker waivers, import packages, sign-off and
+certificate. Every check prints PASS or FAIL; the files it produces go to `e2e-output/`.
+
+```bash
+node scripts/e2e-sample-run.mjs --base http://127.0.0.1:8086 --admin-password '<admin password>'
+```
+
+It creates its own users and client (suffixed with the time), so it can run again on the same
+database. With `DATABRIDGE_AUTH=none` no password is needed.
+
 ## Build
 
 Requires JDK 17+ and Maven 3.9+. Use `verify` (not `test`): the store and app tests use the core test-jar.
