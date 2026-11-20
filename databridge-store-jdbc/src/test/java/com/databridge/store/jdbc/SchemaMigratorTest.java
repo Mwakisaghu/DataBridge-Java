@@ -15,12 +15,12 @@ class SchemaMigratorTest {
     void appliesPendingScriptsOnceAndRecordsThem() {
         DataSource ds = TestDatabase.empty();
         List<SchemaMigrator.Applied> first = new SchemaMigrator(ds).migrate();
-        assertEquals(5, first.size());
+        assertEquals(6, first.size());
         assertEquals("V1__baseline.sql", first.get(0).script());
 
         assertTrue(new SchemaMigrator(ds).migrate().isEmpty(), "second start applies nothing");
         int rows = new Jdbc(ds).one("SELECT COUNT(*) AS n FROM databridge_schema_history", rs -> rs.getInt("n")).orElse(0);
-        assertEquals(5, rows);
+        assertEquals(6, rows);
     }
 
     @Test

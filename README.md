@@ -106,6 +106,7 @@ http://localhost:5173, choose your own password, then add people under **Users**
 | `auth.secureCookie` (`DATABRIDGE_SECURE_COOKIE`) | `false` | Set `true` whenever users reach DataBridge over HTTPS |
 | `auth.sessionIdleMinutes` / `auth.sessionAbsoluteHours` | 120 / 12 | Session limits |
 | `auth.initialAdminPassword` (`DATABRIDGE_ADMIN_PASSWORD`) | empty | First start only; empty = generate and print one |
+| `DATABRIDGE_BC_CLIENT_SECRET` (name set in the Integration Setup) | not set | Business Central app secret, read from the environment only |
 
 Forgot the admin password with no other admin? Stop the server, then start it once with
 `DATABRIDGE_AUTH=none`, or delete the `app_user` rows in the database to bootstrap again.
@@ -153,6 +154,11 @@ With `DATABRIDGE_AUTH=none`, name yourself in the `X-DataBridge-User` header ins
 | POST | `/api/runs/{runId}/clean?kind=STATIC&fileName=...` | Clean a workbook (raw body); returns the cleaned .xlsx, job id in `X-DataBridge-Cleaning-Job` |
 | GET | `/api/runs/{runId}/cleaning-jobs`, `/api/cleaning-jobs/{id}` | Cleaning history and change logs (no values) |
 | GET, PUT, DELETE | `/api/setup/cleaning`, `/api/setup/cleaning/{id}` | Cleaning Setup (changes ADMIN) |
+| POST | `/api/runs/{runId}/package?kind=STATIC&fileName=...` | Import package from the validated workbook (raw body), tables in import order; job id in `X-DataBridge-Package-Job` |
+| GET | `/api/runs/{runId}/packages`, `/api/runs/{runId}/imports` | Packages built; import tracking per table |
+| PUT | `/api/runs/{runId}/imports/{sheet}` | Record an import result `{"importedRows":150}` or `{"failed":true,"note":"..."}` |
+| POST | `/api/runs/{runId}/imports/verify` | Read record counts back from Business Central (502 when it cannot be reached) |
+| GET, PUT | `/api/setup/integration`; POST `/api/setup/integration/test` | Integration Setup and connection test (ADMIN) |
 | GET | `/api/checks/{id}/reconciliation` | Trial balance and control accounts of a check, with each variance's explanation |
 | GET | `/api/checks/{id}/reconciliation.xlsx` | Reconciliation pack as Excel |
 | GET | `/api/setup/reconciliation` | Reconciliation Setup in force: trial balance layout, control accounts |
@@ -169,6 +175,7 @@ With `DATABRIDGE_AUTH=none`, name yourself in the `X-DataBridge-User` header ins
 | Template Setup | `template_setup_sheet` and `template_setup_field` tables, `/api/setup/templates` | Per sheet: BC table and ID, caption row, column types, required columns |
 | Rule Setup | `rule_setup` table, `/api/setup/rules` | Formats (KRA PIN, phone, email), uniqueness, references across sheets and workbooks, group totals, comparisons |
 | Cleaning Setup | `cleaning_setup` table, `/api/setup/cleaning` | Ordered cleaning rules: spaces, capitals, +254 phones, option values, padding, replacements, defaults, exact duplicate rows |
+| Integration Setup | `integration_setup` table, `/api/setup/integration` | Business Central tenant, environment, company, Entra app; package gate; sheet-to-API entity maps. No secrets: the client secret stays in a server environment variable |
 | Reconciliation Setup | `recon_setup` table, `/api/setup/reconciliation` | Trial balance layout and tolerance; control accounts (GL account, normal side, subledger sheets and filters, tolerance) |
 
 Shipped defaults live in `databridge-core/src/main/resources/setup/`. Stored setups override them; the

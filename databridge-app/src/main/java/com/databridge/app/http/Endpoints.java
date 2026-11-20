@@ -51,6 +51,9 @@ public final class Endpoints {
                 r = Response.of(404, ApiError.of(e.getMessage()));
             } catch (ValidationException | SetupException e) {
                 r = Response.of(400, ApiError.of(e.getMessage()));
+            } catch (com.databridge.core.integration.IntegrationException e) {
+                // Business Central or Entra ID failed: a bad gateway, with what to check.
+                r = Response.of(502, ApiError.of(e.getMessage()));
             } catch (JsonProcessingException e) {
                 r = Response.of(400, ApiError.of("Request body is not valid JSON for this endpoint, or names an unknown "
                         + "setting: " + e.getOriginalMessage()));

@@ -206,6 +206,16 @@
     "description": "Every loan belongs to a member"
   },
   {
+    "type": "REFERENCE",
+    "severity": "CRITICAL",
+    "id": "members.employer",
+    "sheet": "Members",
+    "field": "Employer Code",
+    "targetSheet": "Customer Employer_Tenant",
+    "targetField": "No.",
+    "description": "A member's employer is set up as an employer (customer)"
+  },
+  {
     "id": "guarantors.loan",
     "type": "REFERENCE",
     "sheet": "Loan Guarantors and Security",
@@ -254,6 +264,26 @@
     "targetSheet": "Loans",
     "targetField": "Loan No.",
     "description": "Standing orders pay existing loans"
+  },
+  {
+    "type": "REFERENCE",
+    "severity": "CRITICAL",
+    "id": "standing-order-lines.header",
+    "sheet": "Standing Order Lines",
+    "field": "Document No.",
+    "targetSheet": "Standing Order Header",
+    "targetField": "No.",
+    "description": "Every standing order line belongs to a standing order header"
+  },
+  {
+    "type": "REFERENCE",
+    "severity": "CRITICAL",
+    "id": "loan-recovery-lines.header",
+    "sheet": "Loan Recovery Lines",
+    "field": "Header No.",
+    "targetSheet": "Loan Recovery Header",
+    "targetField": "No.",
+    "description": "Every loan recovery line belongs to a recovery header"
   },
   {
     "id": "salary-lines.account",

@@ -236,6 +236,46 @@ class ApiServerTest {
     }
 
     @Test
+    void integrationSetupPackagesAndImportTracking() throws Exception {
+        Reply setup = call("GET", "/api/setup/integration", null);
+        assertEquals(200, setup.status(), setup.text());
+        assertTrue(setup.body().get("setup").get("requireCleanCheck").asBoolean());
+        assertFalse(setup.text().contains("secret\":\""), "no secret value in the answer");
+
+        Reply test = call("POST", "/api/setup/integration/test", null);
+        assertEquals(200, test.status());
+        assertFalse(test.body().get("ok").asBoolean());
+        assertTrue(test.body().get("message").asText().contains("incomplete"));
+
+        String runId = openRun("PKGAPI");
+        byte[] stat = java.nio.file.Files.readAllBytes(com.databridge.core.service.Samples.dir().resolve("clean/Sample Static Data Templates.xlsx"));
+        String sid = call("POST", "/api/runs/" + runId + "/submissions", null).body().get("id").asText();
+        send("POST", "/api/submissions/" + sid + "/files?kind=STATIC&fileName=Static.xlsx", "application/octet-stream",
+                HttpRequest.BodyPublishers.ofByteArray(stat));
+        assertEquals(201, call("POST", "/api/submissions/" + sid + "/process", null).status());
+
+        HttpResponse<byte[]> pkg = http.send(HttpRequest.newBuilder(URI.create(base + "/api/runs/" + runId + "/package?kind=STATIC&fileName=Static.xlsx"))
+                .header("X-DataBridge-User", "harry").header("Content-Type", "application/octet-stream")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(stat)).build(), HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, pkg.statusCode(), () -> new String(pkg.body(), StandardCharsets.UTF_8));
+        assertTrue(pkg.headers().firstValue("X-DataBridge-Package-Job").isPresent());
+        try (var wb = new XSSFWorkbook(new java.io.ByteArrayInputStream(pkg.body()))) {
+            assertEquals("Import order", wb.getSheetName(0));
+        }
+        assertEquals(1, call("GET", "/api/runs/" + runId + "/packages", null).body().size());
+        Reply imports = call("GET", "/api/runs/" + runId + "/imports", null);
+        assertTrue(imports.body().size() > 10);
+        Reply rec = call("PUT", "/api/runs/" + runId + "/imports/" + URLEncoder.encode("Members", StandardCharsets.UTF_8),
+                "{\"importedRows\":150}");
+        assertEquals(200, rec.status(), rec.text());
+        assertEquals("IMPORTED", rec.body().get("status").asText());
+
+        Reply verify = call("POST", "/api/runs/" + runId + "/imports/verify", null);
+        assertEquals(502, verify.status(), "Business Central not configured: a bad gateway, explained");
+        assertTrue(verify.body().get("error").asText().contains("Integration Setup is incomplete"));
+    }
+
+    @Test
     void healthReportsDatabase() throws Exception {
         Reply r = call("GET", "/health", null);
         assertEquals(200, r.status());

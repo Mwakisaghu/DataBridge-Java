@@ -5,3 +5,4 @@ V2__validation.sql
 V3__users.sql
 V4__reconciliation.sql
 V5__cleaning.sql
+V6__integration.sql

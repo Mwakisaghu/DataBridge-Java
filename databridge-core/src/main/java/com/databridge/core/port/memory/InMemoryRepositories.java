@@ -287,6 +287,38 @@ public final class InMemoryRepositories {
         }
     }
 
+    public static final class Integration implements com.databridge.core.port.IntegrationRepository {
+        private String setup;
+        private final List<com.databridge.core.domain.PackageJob> packages = new ArrayList<>();
+        private final Map<String, com.databridge.core.domain.ImportRecord> imports = new LinkedHashMap<>();
+
+        @Override public synchronized Optional<com.databridge.core.integration.IntegrationSetup> setup() {
+            if (setup == null) return Optional.empty();
+            try {
+                return Optional.of(SetupLoader.mapper().readValue(setup, com.databridge.core.integration.IntegrationSetup.class));
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        @Override public synchronized void saveSetup(com.databridge.core.integration.IntegrationSetup st, String actor, Instant at) {
+            try {
+                setup = SetupLoader.mapper().writeValueAsString(st);
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        @Override public synchronized void insertPackage(com.databridge.core.domain.PackageJob job) { packages.add(0, job); }
+        @Override public synchronized List<com.databridge.core.domain.PackageJob> packages(String runId) {
+            return packages.stream().filter(p -> p.runId().equals(runId)).toList();
+        }
+        @Override public synchronized void upsertImport(com.databridge.core.domain.ImportRecord r) {
+            imports.put(r.runId() + "|" + r.sheet(), r);
+        }
+        @Override public synchronized List<com.databridge.core.domain.ImportRecord> imports(String runId) {
+            return imports.values().stream().filter(r -> r.runId().equals(runId)).toList();
+        }
+    }
+
     public static final class Users implements UserRepository {
         private final Map<String, User> rows = new LinkedHashMap<>();
         private final Map<String, Session> sessions = new LinkedHashMap<>();

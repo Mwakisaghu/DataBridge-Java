@@ -14,4 +14,5 @@ public record Services(SetupService setups, MigrationService migrations, IntakeS
                        AuditLog audit, RuleService rules, FindingService findings, UserService users,
                        com.databridge.core.service.ReconciliationService recon,
                        com.databridge.core.service.CleaningService cleaning,
+                       com.databridge.core.service.IntegrationService integration,
                        String authMode) { }

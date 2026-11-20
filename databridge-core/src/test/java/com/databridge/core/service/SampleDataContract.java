@@ -55,6 +55,7 @@ public abstract class SampleDataContract {
                 try (InputStream in = Files.newInputStream(p)) {
                     out = fx.cleaning.clean(run, kind, p.getFileName().toString(), in, "harry");
                 }
+                assertEquals(List.of(), IntegrationServiceTest.brokenRelationships(out.workbook()), "cleaned workbook is structurally sound");
                 fx.intake.addFile(s.id(), kind, out.fileName(), new java.io.ByteArrayInputStream(out.workbook()), "harry");
                 continue;
             }
