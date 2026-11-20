@@ -42,7 +42,7 @@ class ApiServerTest {
     static void start() {
         String db = "jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MSSQLServer;DATABASE_TO_UPPER=FALSE;DB_CLOSE_DELAY=-1";
         server = DataBridgeServer.start(AppConfig.load(new String[0],
-                Map.of("DATABRIDGE_PORT", "0", "DATABRIDGE_DB_URL", db)));
+                Map.of("DATABRIDGE_PORT", "0", "DATABRIDGE_DB_URL", db, "DATABRIDGE_AUTH", "none")));
         base = "http://127.0.0.1:" + server.port();
     }
 
@@ -98,6 +98,209 @@ class ApiServerTest {
         return send("POST", "/api/runs/" + runId + "/datasets?kind=static&fileName="
                         + URLEncoder.encode(fileName, StandardCharsets.UTF_8),
                 "application/octet-stream", HttpRequest.BodyPublishers.ofByteArray(bytes));
+    }
+
+    @Test
+    void overviewNestsProjectsRunsAndDatasetCounts() throws Exception {
+        String runId = openRun("OVERVIEW");
+        upload(runId, "a.xlsx", membersWorkbook());
+        upload(runId, "bad.xlsx", new byte[] {1, 2, 3});
+        Reply r = call("GET", "/api/overview", null);
+        assertEquals(200, r.status(), r.text());
+        JsonNode client = null;
+        for (JsonNode c : r.body()) if (c.get("client").get("code").asText().equals("OVERVIEW")) client = c;
+        JsonNode run = client.get("projects").get(0).get("runs").get(0);
+        assertEquals(runId, run.get("run").get("id").asText());
+        assertEquals(2, run.get("datasets").asInt());
+        assertEquals(1, run.get("failedDatasets").asInt());
+    }
+
+    @Test
+    void startupProblemsAreExplainedInOneLine() {
+        AppConfig c = AppConfig.load(new String[0], Map.of("DATABRIDGE_DB_URL", "jdbc:h2:mem:x"));
+        String msg = DataBridgeServer.startupProblem(new RuntimeException(new java.net.BindException("Address already in use")), c);
+        assertTrue(msg.startsWith("port 8085 on 127.0.0.1 is already in use"), msg);
+        assertTrue(msg.contains("DATABRIDGE_PORT"));
+    }
+
+    @Test
+    void defaultDatabaseKeepsDataBetweenRestarts() {
+        AppConfig c = AppConfig.load(new String[0], Map.of());
+        assertTrue(c.dbUrl().startsWith("jdbc:h2:file:"), c.dbUrl());
+    }
+
+    @Test
+    void submissionValidatesWorkbooksTogetherAndWaiversAreMakerChecker() throws Exception {
+        String runId = openRun("SUBMIT");
+        Reply sub = call("POST", "/api/runs/" + runId + "/submissions", null);
+        assertEquals(201, sub.status(), sub.text());
+        String sid = sub.body().get("id").asText();
+        Reply file = send("POST", "/api/submissions/" + sid + "/files?kind=STATIC&fileName=Static.xlsx", "application/octet-stream",
+                HttpRequest.BodyPublishers.ofByteArray(com.databridge.core.service.FindingServiceTestData.members()));
+        assertEquals(201, file.status(), file.text());
+        Reply done = call("POST", "/api/submissions/" + sid + "/process", null);
+        assertEquals(201, done.status(), done.text());
+        JsonNode check = done.body().get("check");
+        assertEquals("FAILED", check.get("status").asText());
+        assertEquals(2, check.get("critical").asInt());
+        assertEquals(404, call("GET", "/api/submissions/" + sid, null).status(), "processed submissions are gone");
+
+        String checkId = check.get("id").asText();
+        Reply page = call("GET", "/api/checks/" + checkId + "/findings?severity=critical&limit=1", null);
+        assertEquals(2, page.body().get("total").asInt());
+        String fid = page.body().get("items").get(0).get("id").asText();
+        assertFalse(page.text().contains("A12345678\""), "values masked");
+
+        assertEquals(200, call("POST", "/api/findings/" + fid + "/waiver", "{\"reason\":\"Confirmed with the client\"}").status());
+        Reply self = call("POST", "/api/findings/" + fid + "/waiver/decision", "{\"approve\":true}");
+        assertEquals(400, self.status(), "same user cannot approve");
+        HttpRequest other = HttpRequest.newBuilder(URI.create(base + "/api/findings/" + fid + "/waiver/decision"))
+                .header("X-DataBridge-User", "reviewer").header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"approve\":true,\"note\":\"ok\"}")).build();
+        assertEquals(200, http.send(other, HttpResponse.BodyHandlers.ofString()).statusCode());
+
+        HttpResponse<byte[]> xlsx = http.send(HttpRequest.newBuilder(URI.create(base + "/api/checks/" + checkId + "/register.xlsx")).build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, xlsx.statusCode());
+        assertTrue(xlsx.headers().firstValue("Content-Disposition").orElse("").contains("exception-register-check-1.xlsx"));
+        assertEquals('P', (char) xlsx.body()[0], "a zip-based .xlsx");
+
+        Reply checks = call("GET", "/api/runs/" + runId + "/checks", null);
+        assertEquals(1, checks.body().size());
+        assertTrue(checks.body().get(0).get("counts").toString().contains("WAIVED"));
+    }
+
+    @Test
+    void ruleSetupCanBeReadAndChanged() throws Exception {
+        Reply rules = call("GET", "/api/setup/rules", null);
+        assertTrue(rules.body().size() >= 40);
+        Reply put = call("PUT", "/api/setup/rules/members.email",
+                "{\"type\":\"FORMAT\",\"sheet\":\"Members\",\"field\":\"E-Mail\",\"severity\":\"INFO\",\"pattern\":\"EMAIL\"}");
+        assertEquals(200, put.status(), put.text());
+        assertEquals(400, call("PUT", "/api/setup/rules/x.y", "{\"type\":\"FORMAT\",\"sheet\":\"Members\",\"field\":\"Name\"}").status());
+        assertEquals(204, call("DELETE", "/api/setup/rules/members.email", null).status());
+    }
+
+    @Test
+    void reconciliationSetupCanBeReadAndChanged() throws Exception {
+        Reply setup = call("GET", "/api/setup/reconciliation", null);
+        assertEquals(200, setup.status(), setup.text());
+        assertEquals(9, setup.body().get("controls").size());
+        Reply put = call("PUT", "/api/setup/reconciliation/controls/bank-balances",
+                "{\"glAccount\":\"104101\",\"name\":\"Nyota Bank\",\"normal\":\"DEBIT\","
+                + "\"sources\":[{\"sheet\":\"BANK BALANCES\",\"amountField\":\"Balance as at cutoff date\",\"whereField\":\"No\",\"whereEquals\":\"BNK001\"}]}");
+        assertEquals(200, put.status(), put.text());
+        assertEquals(10, call("GET", "/api/setup/reconciliation", null).body().get("controls").size());
+        assertEquals(400, call("PUT", "/api/setup/reconciliation/controls/bad", "{\"glAccount\":\"1\",\"normal\":\"DEBIT\"}").status(),
+                "a control needs a subledger");
+        assertEquals(204, call("DELETE", "/api/setup/reconciliation/controls/bank-balances", null).status());
+        assertEquals(200, call("PUT", "/api/setup/reconciliation/trial-balance",
+                "{\"sheet\":\"TRIAL BALANCE\",\"accountField\":\"No.\",\"debitField\":\"Debit\",\"creditField\":\"Credit\",\"tolerance\":0.01}").status());
+        assertTrue(call("GET", "/api/setup/reconciliation", null).body().get("trialBalanceStored").asBoolean());
+        assertEquals(204, call("DELETE", "/api/setup/reconciliation/trial-balance", null).status());
+    }
+
+    @Test
+    void cleanAndDownloadReturnsTheCleanedWorkbookAndKeepsOnlyTheChangeLog() throws Exception {
+        String runId = openRun("CLEANAPI");
+        byte[] stat = java.nio.file.Files.readAllBytes(com.databridge.core.service.Samples.dir()
+                .resolve("with-errors/Sample Static Data Templates.xlsx"));
+        HttpRequest req = HttpRequest.newBuilder(URI.create(base + "/api/runs/" + runId + "/clean?kind=STATIC&fileName="
+                        + URLEncoder.encode("Sample Static Data Templates.xlsx", StandardCharsets.UTF_8)))
+                .header("X-DataBridge-User", "harry").header("Content-Type", "application/octet-stream")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(stat)).build();
+        HttpResponse<byte[]> res = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, res.statusCode(), () -> new String(res.body(), StandardCharsets.UTF_8));
+        assertTrue(res.headers().firstValue("Content-Disposition").orElse("").contains("Sample Static Data Templates (cleaned).xlsx"));
+        String jobId = res.headers().firstValue("X-DataBridge-Cleaning-Job").orElseThrow();
+        try (var wb = new XSSFWorkbook(new java.io.ByteArrayInputStream(res.body()))) {
+            assertEquals("+254712345678", wb.getSheet("Members").getRow(42).getCell(8).getStringCellValue());
+        }
+
+        Reply job = call("GET", "/api/cleaning-jobs/" + jobId, null);
+        assertEquals(200, job.status(), job.text());
+        assertTrue(job.body().get("job").get("cells").asInt() >= 4);
+        assertFalse(job.text().contains("712345678"), "the change log holds no values");
+        assertEquals(1, call("GET", "/api/runs/" + runId + "/cleaning-jobs", null).body().size());
+
+        assertTrue(call("GET", "/api/setup/cleaning", null).body().size() >= 10);
+        assertEquals(200, call("PUT", "/api/setup/cleaning/members.names",
+                "{\"sheet\":\"Members\",\"field\":\"Name\",\"action\":\"UPPER\"}").status());
+        assertEquals(400, call("PUT", "/api/setup/cleaning/bad.pad", "{\"sheet\":\"Members\",\"field\":\"No.\",\"action\":\"PAD_LEFT\"}").status());
+        assertEquals(204, call("DELETE", "/api/setup/cleaning/members.names", null).status());
+
+        Reply bad = send("POST", "/api/runs/" + runId + "/clean?kind=STATIC&fileName=x.xlsx", "application/octet-stream",
+                HttpRequest.BodyPublishers.ofByteArray("not a workbook".getBytes(StandardCharsets.UTF_8)));
+        assertEquals(400, bad.status());
+        assertTrue(bad.body().get("error").asText().contains("could not be cleaned"));
+    }
+
+    @Test
+    void integrationSetupPackagesAndImportTracking() throws Exception {
+        Reply setup = call("GET", "/api/setup/integration", null);
+        assertEquals(200, setup.status(), setup.text());
+        assertTrue(setup.body().get("setup").get("requireCleanCheck").asBoolean());
+        assertFalse(setup.text().contains("secret\":\""), "no secret value in the answer");
+
+        Reply test = call("POST", "/api/setup/integration/test", null);
+        assertEquals(200, test.status());
+        assertFalse(test.body().get("ok").asBoolean());
+        assertTrue(test.body().get("message").asText().contains("incomplete"));
+
+        String runId = openRun("PKGAPI");
+        byte[] stat = java.nio.file.Files.readAllBytes(com.databridge.core.service.Samples.dir().resolve("clean/Sample Static Data Templates.xlsx"));
+        String sid = call("POST", "/api/runs/" + runId + "/submissions", null).body().get("id").asText();
+        send("POST", "/api/submissions/" + sid + "/files?kind=STATIC&fileName=Static.xlsx", "application/octet-stream",
+                HttpRequest.BodyPublishers.ofByteArray(stat));
+        assertEquals(201, call("POST", "/api/submissions/" + sid + "/process", null).status());
+
+        HttpResponse<byte[]> pkg = http.send(HttpRequest.newBuilder(URI.create(base + "/api/runs/" + runId + "/package?kind=STATIC&fileName=Static.xlsx"))
+                .header("X-DataBridge-User", "harry").header("Content-Type", "application/octet-stream")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(stat)).build(), HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, pkg.statusCode(), () -> new String(pkg.body(), StandardCharsets.UTF_8));
+        assertTrue(pkg.headers().firstValue("X-DataBridge-Package-Job").isPresent());
+        try (var wb = new XSSFWorkbook(new java.io.ByteArrayInputStream(pkg.body()))) {
+            assertEquals("Import order", wb.getSheetName(0));
+        }
+        assertEquals(1, call("GET", "/api/runs/" + runId + "/packages", null).body().size());
+        Reply imports = call("GET", "/api/runs/" + runId + "/imports", null);
+        assertTrue(imports.body().size() > 10);
+        Reply rec = call("PUT", "/api/runs/" + runId + "/imports/" + URLEncoder.encode("Members", StandardCharsets.UTF_8),
+                "{\"importedRows\":150}");
+        assertEquals(200, rec.status(), rec.text());
+        assertEquals("IMPORTED", rec.body().get("status").asText());
+
+        Reply verify = call("POST", "/api/runs/" + runId + "/imports/verify", null);
+        assertEquals(502, verify.status(), "Business Central not configured: a bad gateway, explained");
+        assertTrue(verify.body().get("error").asText().contains("Integration Setup is incomplete"));
+    }
+
+    @Test
+    void runSummarySignOffAndExports() throws Exception {
+        String runId = openRun("REPORTS");
+        Reply sum = call("GET", "/api/runs/" + runId + "/summary", null);
+        assertEquals(200, sum.status(), sum.text());
+        assertFalse(sum.body().get("ready").asBoolean());
+        assertEquals(4, sum.body().get("checklist").size());
+        assertEquals("REPORTS", sum.body().get("client").get("code").asText());
+
+        Reply notReady = call("POST", "/api/runs/" + runId + "/signoff", null);
+        assertEquals(400, notReady.status(), "no body is fine; not being ready is not");
+        assertTrue(notReady.body().get("error").asText().startsWith("The run is not ready for sign-off"));
+        assertEquals(400, call("POST", "/api/runs/" + runId + "/signoff/decision", "{\"approve\":true}").status());
+
+        HttpResponse<byte[]> pack = http.send(HttpRequest.newBuilder(URI.create(base + "/api/runs/" + runId + "/signoff-pack.xlsx")).build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, pack.statusCode());
+        try (var wb = new XSSFWorkbook(new java.io.ByteArrayInputStream(pack.body()))) {
+            assertEquals("Not requested", wb.getSheet("Sign-off").getRow(4).getCell(1).getStringCellValue());
+        }
+        HttpResponse<byte[]> audit = http.send(HttpRequest.newBuilder(URI.create(base + "/api/audit.xlsx?limit=50")).build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, audit.statusCode());
+        try (var wb = new XSSFWorkbook(new java.io.ByteArrayInputStream(audit.body()))) {
+            assertTrue(wb.getSheet("Audit trail").getLastRowNum() >= 1);
+        }
     }
 
     @Test

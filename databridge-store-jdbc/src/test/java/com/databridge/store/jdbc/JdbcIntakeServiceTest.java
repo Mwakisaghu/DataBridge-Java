@@ -9,7 +9,10 @@ import java.nio.file.Path;
 class JdbcIntakeServiceTest extends IntakeServiceContract {
     @Override
     protected Fixture fixture(Path tmp) {
-        JdbcRepositories r = new JdbcRepositories(TestDatabase.create());
-        return new Fixture(tmp, r.clients(), r.projects(), r.runs(), r.datasets(), r.audit(), r.setups());
+        javax.sql.DataSource ds = TestDatabase.create();
+        JdbcRepositories r = new JdbcRepositories(ds);
+        JdbcValidationRepositories v = new JdbcValidationRepositories(ds);
+        return new Fixture(tmp, r.clients(), r.projects(), r.runs(), r.datasets(), r.audit(), r.setups(),
+                v.checks(), v.findings(), v.rules());
     }
 }

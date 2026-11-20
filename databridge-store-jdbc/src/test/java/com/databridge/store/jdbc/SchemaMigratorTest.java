@@ -15,12 +15,12 @@ class SchemaMigratorTest {
     void appliesPendingScriptsOnceAndRecordsThem() {
         DataSource ds = TestDatabase.empty();
         List<SchemaMigrator.Applied> first = new SchemaMigrator(ds).migrate();
-        assertEquals(1, first.size());
+        assertEquals(7, first.size());
         assertEquals("V1__baseline.sql", first.get(0).script());
 
         assertTrue(new SchemaMigrator(ds).migrate().isEmpty(), "second start applies nothing");
         int rows = new Jdbc(ds).one("SELECT COUNT(*) AS n FROM databridge_schema_history", rs -> rs.getInt("n")).orElse(0);
-        assertEquals(1, rows);
+        assertEquals(7, rows);
     }
 
     @Test
@@ -45,5 +45,17 @@ class SchemaMigratorTest {
     void splitsOnSemicolonsAndGoAndDropsComments() {
         List<String> s = SchemaMigrator.statements("-- header\nCREATE TABLE a (x INT); -- trailing\nGO\nCREATE TABLE b (y INT)\ngo\n");
         assertEquals(List.of("CREATE TABLE a (x INT)", "CREATE TABLE b (y INT)"), s);
+    }
+
+    @Test
+    void picksScriptsByDatabaseAndExplainsWhatIsMissing() {
+        assertEquals("sqlserver", SchemaMigrator.vendor("Microsoft SQL Server"));
+        assertEquals("h2", SchemaMigrator.vendor("H2"));
+        assertEquals("postgresql", SchemaMigrator.vendor("PostgreSQL"));
+        assertEquals("mysql", SchemaMigrator.vendor("MariaDB"));
+        assertEquals("/db/migration", SchemaMigrator.folderFor("sqlserver"));
+        assertEquals("/db/migration", SchemaMigrator.folderFor("h2"));
+        MigrationException e = assertThrows(MigrationException.class, () -> SchemaMigrator.folderFor("postgresql"));
+        assertTrue(e.getMessage().contains("db/migration/postgresql"), e.getMessage());
     }
 }

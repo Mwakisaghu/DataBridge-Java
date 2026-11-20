@@ -1,0 +1,37 @@
+# DataBridge behind Caddy (automatic HTTPS). Expects DataBridge-FrontEnd checked out next to this
+# repository. Set DATABRIDGE_DOMAIN to the public host name, and the secrets in an .env file:
+#   DATABRIDGE_ADMIN_PASSWORD=...          (first start only)
+#   DATABRIDGE_BC_CLIENT_SECRET=...        (Business Central app secret, if used)
+services:
+  databridge:
+    build:
+      context: .
+      additional_contexts:
+        ui: ../DataBridge-FrontEnd/data-dashboard
+    restart: unless-stopped
+    environment:
+      DATABRIDGE_SECURE_COOKIE: "true"
+      DATABRIDGE_ADMIN_PASSWORD: ${DATABRIDGE_ADMIN_PASSWORD:-}
+      DATABRIDGE_BC_CLIENT_SECRET: ${DATABRIDGE_BC_CLIENT_SECRET:-}
+    volumes:
+      - databridge-data:/data
+    tmpfs:
+      - /tmp:size=2g,mode=1777   # client workspaces live here only while a file is processed
+    expose:
+      - "8085"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    command: caddy reverse-proxy --from ${DATABRIDGE_DOMAIN:-localhost} --to databridge:8085
+    volumes:
+      - caddy-data:/data
+    depends_on:
+      - databridge
+
+volumes:
+  databridge-data:
+  caddy-data:

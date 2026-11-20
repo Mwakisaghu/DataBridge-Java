@@ -1,0 +1,14 @@
+{
+  "environment": "Production",
+  "clientSecretEnv": "DATABRIDGE_BC_CLIENT_SECRET",
+  "requireCleanCheck": true,
+  "entities": [
+    { "sheet": "Chart of Account", "apiPath": "api/v2.0", "entitySet": "accounts" },
+    { "sheet": "Customer Employer_Tenant", "apiPath": "api/v2.0", "entitySet": "customers" },
+    { "sheet": "Vendor_Debt Collectors", "apiPath": "api/v2.0", "entitySet": "vendors" },
+    { "sheet": "Bank Account", "apiPath": "api/v2.0", "entitySet": "bankAccounts" },
+    { "sheet": "Fixed Asset", "apiPath": "api/v2.0", "entitySet": "fixedAssets" },
+    { "sheet": "Item", "apiPath": "api/v2.0", "entitySet": "items" },
+    { "sheet": "Employee Upload", "apiPath": "api/v2.0", "entitySet": "employees" }
+  ]
+}

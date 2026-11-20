@@ -1,6 +1,20 @@
 package com.databridge.core.port.memory;
 
 import com.databridge.core.domain.AuditEvent;
+import com.databridge.core.domain.FindingCount;
+import com.databridge.core.domain.FindingFilter;
+import com.databridge.core.domain.StoredFinding;
+import com.databridge.core.domain.ValidationCheck;
+import com.databridge.core.finding.FindingStatus;
+import com.databridge.core.finding.Severity;
+import com.databridge.core.port.CheckRepository;
+import com.databridge.core.port.FindingRepository;
+import com.databridge.core.port.RuleRepository;
+import com.databridge.core.port.UserRepository;
+import com.databridge.core.security.Session;
+import com.databridge.core.security.User;
+import com.databridge.core.setup.SetupLoader;
+import com.databridge.core.validation.RuleDef;
 import com.databridge.core.domain.Client;
 import com.databridge.core.domain.DatasetVersion;
 import com.databridge.core.domain.MigrationRun;
@@ -119,6 +133,229 @@ public final class InMemoryRepositories {
         }
         @Override public synchronized boolean deleteSheet(String name) {
             return sheets.remove(TemplateSetup.normalise(name)) != null;
+        }
+    }
+
+    public static final class Checks implements CheckRepository {
+        private final Map<String, ValidationCheck> rows = new LinkedHashMap<>();
+        @Override public synchronized void insert(ValidationCheck c) { rows.put(c.id(), c); }
+        @Override public synchronized Optional<ValidationCheck> find(String id) { return Optional.ofNullable(rows.get(id)); }
+        @Override public synchronized List<ValidationCheck> listByRun(String runId) {
+            return rows.values().stream().filter(c -> c.runId().equals(runId))
+                    .sorted(Comparator.comparingInt(ValidationCheck::checkNo).reversed()).toList();
+        }
+        @Override public synchronized int maxCheckNo(String runId) {
+            return rows.values().stream().filter(c -> c.runId().equals(runId)).mapToInt(ValidationCheck::checkNo).max().orElse(0);
+        }
+    }
+
+    public static final class Findings implements FindingRepository {
+        private final Map<String, StoredFinding> rows = new LinkedHashMap<>();
+        private static final Comparator<StoredFinding> ORDER = Comparator.comparing(StoredFinding::severity)
+                .thenComparing(f -> String.valueOf(f.sheet())).thenComparingInt(StoredFinding::rowNo).thenComparing(StoredFinding::id);
+        @Override public synchronized void insertAll(List<StoredFinding> fs) { fs.forEach(f -> rows.put(f.id(), f)); }
+        @Override public synchronized Optional<StoredFinding> find(String id) { return Optional.ofNullable(rows.get(id)); }
+        @Override public synchronized void update(StoredFinding f) {
+            if (!rows.containsKey(f.id())) throw new IllegalStateException("No finding " + f.id());
+            rows.put(f.id(), f);
+        }
+        @Override public synchronized List<StoredFinding> list(String checkId, FindingFilter filter, int offset, int limit) {
+            return rows.values().stream().filter(f -> f.checkId().equals(checkId) && filter.matches(f)).sorted(ORDER)
+                    .skip(offset).limit(limit).toList();
+        }
+        @Override public synchronized int count(String checkId, FindingFilter filter) {
+            return (int) rows.values().stream().filter(f -> f.checkId().equals(checkId) && filter.matches(f)).count();
+        }
+        @Override public synchronized List<FindingCount> counts(String checkId) {
+            Map<String, Integer> n = new LinkedHashMap<>();
+            rows.values().stream().filter(f -> f.checkId().equals(checkId))
+                    .forEach(f -> n.merge(f.severity() + "|" + f.status(), 1, Integer::sum));
+            List<FindingCount> out = new ArrayList<>();
+            n.forEach((k, v) -> {
+                String[] p = k.split("\\|");
+                out.add(new FindingCount(Severity.valueOf(p[0]), FindingStatus.valueOf(p[1]), v));
+            });
+            return out;
+        }
+    }
+
+    public static final class Rules implements RuleRepository {
+        private final Map<String, String> rows = new LinkedHashMap<>();
+        @Override public synchronized List<RuleDef> list() {
+            List<RuleDef> out = new ArrayList<>();
+            for (String json : rows.values()) {
+                try {
+                    out.add(SetupLoader.mapper().readValue(json, RuleDef.class));
+                } catch (java.io.IOException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+            return out;
+        }
+        @Override public synchronized void save(RuleDef r, String actor, Instant at) {
+            try {
+                rows.put(r.getId(), SetupLoader.mapper().writeValueAsString(r));
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        @Override public synchronized boolean delete(String id) { return rows.remove(id) != null; }
+    }
+
+    public static final class Recon implements com.databridge.core.port.ReconRepository {
+        private final Map<String, String> controls = new LinkedHashMap<>();
+        private String trialBalance;
+        private final Map<String, List<com.databridge.core.recon.ReconLine>> lines = new LinkedHashMap<>();
+
+        private static String json(Object o) {
+            try {
+                return SetupLoader.mapper().writeValueAsString(o);
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        private static <T> T read(String json, Class<T> type) {
+            try {
+                return SetupLoader.mapper().readValue(json, type);
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        @Override public synchronized List<com.databridge.core.recon.ControlDef> controls() {
+            return controls.values().stream().map(j -> read(j, com.databridge.core.recon.ControlDef.class)).toList();
+        }
+        @Override public synchronized void saveControl(com.databridge.core.recon.ControlDef c, String actor, Instant at) {
+            controls.put(c.getId(), json(c));
+        }
+        @Override public synchronized boolean deleteControl(String id) { return controls.remove(id) != null; }
+        @Override public synchronized Optional<com.databridge.core.recon.TrialBalanceDef> trialBalance() {
+            return Optional.ofNullable(trialBalance).map(j -> read(j, com.databridge.core.recon.TrialBalanceDef.class));
+        }
+        @Override public synchronized void saveTrialBalance(com.databridge.core.recon.TrialBalanceDef tb, String actor, Instant at) {
+            trialBalance = json(tb);
+        }
+        @Override public synchronized boolean deleteTrialBalance() {
+            boolean had = trialBalance != null;
+            trialBalance = null;
+            return had;
+        }
+        @Override public synchronized void insertLines(String checkId, String runId, List<com.databridge.core.recon.ReconLine> ls) {
+            lines.put(checkId, List.copyOf(ls));
+        }
+        @Override public synchronized List<com.databridge.core.recon.ReconLine> lines(String checkId) {
+            return lines.getOrDefault(checkId, List.of());
+        }
+    }
+
+    public static final class Cleaning implements com.databridge.core.port.CleaningRepository {
+        private final Map<String, String> rules = new LinkedHashMap<>();
+        private final Map<String, com.databridge.core.domain.CleaningJob> jobs = new LinkedHashMap<>();
+        private final Map<String, List<com.databridge.core.cleaning.CleanChange>> changes = new LinkedHashMap<>();
+
+        @Override public synchronized List<com.databridge.core.cleaning.CleanRule> rules() {
+            List<com.databridge.core.cleaning.CleanRule> out = new ArrayList<>();
+            for (String j : rules.values()) {
+                try {
+                    out.add(SetupLoader.mapper().readValue(j, com.databridge.core.cleaning.CleanRule.class));
+                } catch (java.io.IOException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+            return out;
+        }
+        @Override public synchronized void saveRule(com.databridge.core.cleaning.CleanRule r, String actor, Instant at) {
+            try {
+                rules.put(r.getId(), SetupLoader.mapper().writeValueAsString(r));
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        @Override public synchronized boolean deleteRule(String id) { return rules.remove(id) != null; }
+        @Override public synchronized void insertJob(com.databridge.core.domain.CleaningJob job,
+                                                     List<com.databridge.core.cleaning.CleanChange> cs) {
+            jobs.put(job.id(), job);
+            changes.put(job.id(), List.copyOf(cs));
+        }
+        @Override public synchronized List<com.databridge.core.domain.CleaningJob> jobs(String runId) {
+            List<com.databridge.core.domain.CleaningJob> out = new ArrayList<>(jobs.values().stream().filter(j -> j.runId().equals(runId)).toList());
+            java.util.Collections.reverse(out);
+            return out;
+        }
+        @Override public synchronized Optional<com.databridge.core.domain.CleaningJob> job(String id) { return Optional.ofNullable(jobs.get(id)); }
+        @Override public synchronized List<com.databridge.core.cleaning.CleanChange> changes(String jobId) {
+            return changes.getOrDefault(jobId, List.of());
+        }
+    }
+
+    public static final class Integration implements com.databridge.core.port.IntegrationRepository {
+        private String setup;
+        private final List<com.databridge.core.domain.PackageJob> packages = new ArrayList<>();
+        private final Map<String, com.databridge.core.domain.ImportRecord> imports = new LinkedHashMap<>();
+
+        @Override public synchronized Optional<com.databridge.core.integration.IntegrationSetup> setup() {
+            if (setup == null) return Optional.empty();
+            try {
+                return Optional.of(SetupLoader.mapper().readValue(setup, com.databridge.core.integration.IntegrationSetup.class));
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        @Override public synchronized void saveSetup(com.databridge.core.integration.IntegrationSetup st, String actor, Instant at) {
+            try {
+                setup = SetupLoader.mapper().writeValueAsString(st);
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        @Override public synchronized void insertPackage(com.databridge.core.domain.PackageJob job) { packages.add(0, job); }
+        @Override public synchronized List<com.databridge.core.domain.PackageJob> packages(String runId) {
+            return packages.stream().filter(p -> p.runId().equals(runId)).toList();
+        }
+        @Override public synchronized void upsertImport(com.databridge.core.domain.ImportRecord r) {
+            imports.put(r.runId() + "|" + r.sheet(), r);
+        }
+        @Override public synchronized List<com.databridge.core.domain.ImportRecord> imports(String runId) {
+            return imports.values().stream().filter(r -> r.runId().equals(runId)).toList();
+        }
+    }
+
+    public static final class SignOffs implements com.databridge.core.port.SignOffRepository {
+        private final Map<String, com.databridge.core.domain.SignOff> rows = new LinkedHashMap<>();
+        @Override public synchronized Optional<com.databridge.core.domain.SignOff> find(String runId) { return Optional.ofNullable(rows.get(runId)); }
+        @Override public synchronized void save(com.databridge.core.domain.SignOff s) { rows.put(s.runId(), s); }
+    }
+
+    public static final class Users implements UserRepository {
+        private final Map<String, User> rows = new LinkedHashMap<>();
+        private final Map<String, Session> sessions = new LinkedHashMap<>();
+        @Override public synchronized void insert(User u) {
+            if (findByUsername(u.username()).isPresent()) throw new IllegalStateException("Duplicate user " + u.username());
+            rows.put(u.id(), u);
+        }
+        @Override public synchronized void update(User u) {
+            if (!rows.containsKey(u.id())) throw new IllegalStateException("No user " + u.id());
+            rows.put(u.id(), u);
+        }
+        @Override public synchronized Optional<User> find(String id) { return Optional.ofNullable(rows.get(id)); }
+        @Override public synchronized Optional<User> findByUsername(String n) {
+            return rows.values().stream().filter(u -> u.username().equals(n)).findFirst();
+        }
+        @Override public synchronized List<User> list() {
+            return rows.values().stream().sorted(Comparator.comparing(User::username)).toList();
+        }
+        @Override public synchronized int count() { return rows.size(); }
+        @Override public synchronized void insertSession(Session s) { sessions.put(s.tokenHash(), s); }
+        @Override public synchronized Optional<Session> findSession(String h) { return Optional.ofNullable(sessions.get(h)); }
+        @Override public synchronized void touchSession(String h, Instant at) {
+            Session s = sessions.get(h);
+            if (s != null) sessions.put(h, new Session(h, s.userId(), s.createdAt(), s.expiresAt(), at));
+        }
+        @Override public synchronized void deleteSession(String h) { sessions.remove(h); }
+        @Override public synchronized void deleteSessionsOf(String userId) { sessions.values().removeIf(s -> s.userId().equals(userId)); }
+        @Override public synchronized int deleteExpiredSessions(Instant now) {
+            int before = sessions.size();
+            sessions.values().removeIf(s -> !s.expiresAt().isAfter(now));
+            return before - sessions.size();
         }
     }
 }

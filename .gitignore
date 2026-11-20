@@ -61,3 +61,5 @@ databridge-workspaces/
 *.xlsm
 *.xls
 *.csv
+# Synthetic sample data (invented people and numbers) is the one exception: it is the golden test set.
+!samples/**/*.xlsx

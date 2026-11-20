@@ -29,7 +29,13 @@ public final class Jdbc {
     }
 
     public <T> List<T> query(String sql, RowMapper<T> mapper, Object... params) {
+        return queryLimited(sql, 0, mapper, params);
+    }
+
+    /** Like {@link #query} but returns at most {@code maxRows} rows (0 = no limit), without vendor SQL such as TOP or LIMIT. */
+    public <T> List<T> queryLimited(String sql, int maxRows, RowMapper<T> mapper, Object... params) {
         try (Connection c = ds.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            if (maxRows > 0) ps.setMaxRows(maxRows);
             bind(ps, params);
             try (ResultSet rs = ps.executeQuery()) {
                 List<T> out = new ArrayList<>();
@@ -71,6 +77,19 @@ public final class Jdbc {
             }
         } catch (SQLException e) {
             throw new JdbcException("Transaction failed", e);
+        }
+    }
+
+    /** Runs one statement for every parameter set, in batches, inside an open connection. */
+    public static void batch(Connection c, String sql, List<Object[]> rows) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            int n = 0;
+            for (Object[] params : rows) {
+                bind(ps, params);
+                ps.addBatch();
+                if (++n % 500 == 0) ps.executeBatch();
+            }
+            ps.executeBatch();
         }
     }
 

@@ -1,0 +1,3 @@
+# Default Rule Setup shipped with DataBridge, loaded in this order.
+# Stored rules with the same id override these (and can switch them off with "enabled": false).
+sacco-rules.json

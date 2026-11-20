@@ -26,14 +26,15 @@ import java.util.Map;
  * Command line for the core engine.
  * <pre>
  *   schema &lt;workbook.xlsx&gt;... [--out registry.json] [--setup &lt;dir&gt;]
+ *   validate &lt;workbook.xlsx&gt;... [--out register.xlsx] [--setup &lt;dir&gt;]
  *   purge  --expired | --all [--setup &lt;dir&gt;]
  *   setup  [--setup &lt;dir&gt;]
  * </pre>
- * Exit codes: 0 success, 1 usage or setup error, 2 a step ended in ERROR.
+ * Exit codes: 0 success, 1 usage or setup error, 2 a step ended in ERROR, 3 validation found Critical findings.
  */
 public final class DataBridgeCli {
 
-    static final int OK = 0, USAGE = 1, STEP_ERROR = 2;
+    static final int OK = 0, USAGE = 1, STEP_ERROR = 2, FINDINGS = 3;
 
     private final PrintStream out;
     private final PrintStream err;
@@ -71,6 +72,7 @@ public final class DataBridgeCli {
             case "schema": return schema(a, setup);
             case "purge": return purge(a, setup);
             case "setup": return showSetup(setup);
+            case "validate": return validate(a, setup);
             default:
                 err.println("databridge: unknown command '" + a.command + "'");
                 usage(err);
@@ -153,6 +155,88 @@ public final class DataBridgeCli {
         }
     }
 
+    /**
+     * Validates a template set with the shipped Rule Setup, as one submission, without a server or
+     * database. The kind of each workbook is taken from its name (static, transactional, hr).
+     * Exit code 0 when there is no Critical finding, 3 when there are, 2 on ERROR.
+     */
+    private int validate(Args a, EffectiveSetup setup) {
+        if (a.positional.isEmpty()) {
+            err.println("databridge validate: give one to three workbooks");
+            return USAGE;
+        }
+        com.databridge.core.port.memory.InMemoryRepositories.Setups setupRepo = new com.databridge.core.port.memory.InMemoryRepositories.Setups();
+        java.time.Clock clock = java.time.Clock.systemUTC();
+        com.databridge.core.service.AuditLog audit = new com.databridge.core.service.AuditLog(
+                new com.databridge.core.port.memory.InMemoryRepositories.Audit(), clock);
+        com.databridge.core.service.SetupService setups = new com.databridge.core.service.SetupService(setupRepo, audit, clock, setup);
+        setupRepo.saveGeneral(setup.general(), "cli", clock.instant());
+        com.databridge.core.service.MigrationService m = new com.databridge.core.service.MigrationService(
+                new com.databridge.core.port.memory.InMemoryRepositories.Clients(), new com.databridge.core.port.memory.InMemoryRepositories.Projects(),
+                new com.databridge.core.port.memory.InMemoryRepositories.Runs(), audit, clock);
+        com.databridge.core.port.memory.InMemoryRepositories.Checks checks = new com.databridge.core.port.memory.InMemoryRepositories.Checks();
+        com.databridge.core.port.memory.InMemoryRepositories.Findings found = new com.databridge.core.port.memory.InMemoryRepositories.Findings();
+        com.databridge.core.service.RuleService rules = new com.databridge.core.service.RuleService(
+                new com.databridge.core.port.memory.InMemoryRepositories.Rules(), audit, clock);
+        com.databridge.core.service.IntakeService intake = new com.databridge.core.service.IntakeService(m,
+                new com.databridge.core.port.memory.InMemoryRepositories.Datasets(), setups, rules, checks, found,
+                new com.databridge.core.workspace.WorkspaceManagers(), audit, clock);
+        com.databridge.core.service.FindingService findings = new com.databridge.core.service.FindingService(checks, found, m, audit, clock);
+        String client = m.createClient("CLI", "Command line", "cli").id();
+        String project = m.createProject(client, "CLI", "Command line", null, "cli").id();
+        String run = m.openRun(project, com.databridge.core.domain.RunType.MOCK, java.time.LocalDate.now(clock), "cli").id();
+
+        Outcome<com.databridge.core.service.SubmissionResult> res = Outcome.run("validate", () -> {
+            com.databridge.core.service.Submission.View sub = intake.openSubmission(run, "cli");
+            for (String f : a.positional) {
+                Path p = Path.of(f);
+                if (!Files.isRegularFile(p)) throw new IllegalArgumentException("file not found: " + f);
+                try (java.io.InputStream in = Files.newInputStream(p)) {
+                    intake.addFile(sub.id(), kindOf(p.getFileName().toString()), p.getFileName().toString(), in, "cli");
+                }
+            }
+            return intake.process(sub.id(), "cli");
+        });
+        if (!res.isSuccess()) {
+            err.println("databridge validate: " + res.error().orElse(""));
+            return STEP_ERROR;
+        }
+        com.databridge.core.domain.ValidationCheck c = res.value().check();
+        out.printf("%s: %d row(s), %d critical, %d warning(s), %d info, readiness %.1f%%%n", c.status(), c.rows(), c.critical(),
+                c.warning(), c.info(), c.readiness().doubleValue() * 100);
+        for (com.databridge.core.validation.SkippedRule k : res.value().validation().skipped()) {
+            out.println("  not checked: " + k.ruleId() + " (" + k.reason() + ")");
+        }
+        int shown = 0;
+        for (com.databridge.core.finding.Finding f : res.value().validation().findings()) {
+            if (shown++ == 50) {
+                out.println("  ... " + (res.value().validation().findings().size() - 50) + " more; use --out to get the full register");
+                break;
+            }
+            out.printf("  %-8s %s!%s%d %s: %s%n", f.severity(), f.sheet(), f.column(), f.row(), f.field(), f.message());
+        }
+        if (a.option("out") != null) {
+            try {
+                Path target = Path.of(a.option("out"));
+                Files.write(target, findings.register(c.id()));
+                out.println("Exception register written to " + target);
+            } catch (java.io.IOException e) {
+                err.println("databridge validate: " + e.getMessage());
+                return STEP_ERROR;
+            }
+        }
+        return c.status() == com.databridge.core.run.RunStatus.ERROR ? STEP_ERROR
+                : c.status() == com.databridge.core.run.RunStatus.FAILED ? FINDINGS : OK;
+    }
+
+    static com.databridge.core.domain.TemplateKind kindOf(String name) {
+        String n = name.toLowerCase(java.util.Locale.ROOT);
+        if (n.contains("transaction")) return com.databridge.core.domain.TemplateKind.TRANSACTIONAL;
+        if (n.contains("hr")) return com.databridge.core.domain.TemplateKind.HR;
+        if (n.contains("static")) return com.databridge.core.domain.TemplateKind.STATIC;
+        return com.databridge.core.domain.TemplateKind.OTHER;
+    }
+
     private int purge(Args a, EffectiveSetup setup) {
         boolean all = a.flags.contains("all"), expired = a.flags.contains("expired");
         if (all == expired) {
@@ -196,6 +280,8 @@ public final class DataBridgeCli {
         p.println("Usage: databridge <command> [options]");
         p.println("  schema <workbook.xlsx>... [--out <registry.json>] [--setup <dir>]");
         p.println("        Build the schema registry from template workbooks.");
+        p.println("  validate <workbook.xlsx>... [--out <register.xlsx>] [--setup <dir>]");
+        p.println("        Validate a template set together (kind taken from each file name). Exit 3 on Critical findings.");
         p.println("  purge --expired | --all [--setup <dir>]");
         p.println("        Destroy expired workspaces, or every workspace (clears all client files).");
         p.println("  setup [--setup <dir>]");

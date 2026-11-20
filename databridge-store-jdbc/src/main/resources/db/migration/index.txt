@@ -1,3 +1,9 @@
 # Migration scripts, applied in order by SchemaMigrator. Never edit a script once it has
 # been applied anywhere: add a new V<n>__<description>.sql and list it here.
 V1__baseline.sql
+V2__validation.sql
+V3__users.sql
+V4__reconciliation.sql
+V5__cleaning.sql
+V6__integration.sql
+V7__signoff.sql

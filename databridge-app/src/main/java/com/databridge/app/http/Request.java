@@ -18,10 +18,12 @@ public final class Request {
 
     private final HttpServerExchange exchange;
     private final ObjectMapper json;
+    private final Auth auth;
 
-    Request(HttpServerExchange exchange, ObjectMapper json) {
+    Request(HttpServerExchange exchange, ObjectMapper json, Auth auth) {
         this.exchange = exchange;
         this.json = json;
+        this.auth = auth;
     }
 
     /** A {name} from the URL template. */
@@ -49,17 +51,39 @@ public final class Request {
         return exchange.getRequestHeaders().getFirst(name);
     }
 
-    /**
-     * Who is calling. Until sign-in arrives (P0-03) callers name themselves in the
-     * X-DataBridge-User header; the server listens on 127.0.0.1 meanwhile.
-     */
+    /** The signed-in user (in development mode without sign-in: the name in the X-DataBridge-User header). */
+    public com.databridge.core.security.User user() {
+        com.databridge.core.security.User u = auth.current(exchange);
+        if (u == null) throw new com.databridge.core.security.AuthException("Sign in to continue", false);
+        return u;
+    }
+
+    /** Who is calling, for the audit trail: the signed-in user's user name. */
     public String actor() {
-        String h = header(ACTOR_HEADER);
-        return h == null || h.isBlank() ? "local" : h.trim();
+        return user().username();
+    }
+
+    /** The session token from the cookie, or null. */
+    public String sessionToken() {
+        return auth.token(exchange);
+    }
+
+    public void startSession(String token, java.time.Instant expires) {
+        auth.setSession(exchange, token, expires);
+    }
+
+    public void endSession() {
+        auth.clearSession(exchange);
     }
 
     public <T> T body(Class<T> type) throws IOException {
         return json.readValue(exchange.getInputStream(), type);
+    }
+
+    /** The JSON body, or null when the request has none. */
+    public <T> T optionalBody(Class<T> type) throws IOException {
+        JsonNode n = json.readTree(exchange.getInputStream());
+        return n == null || n.isMissingNode() || n.isNull() ? null : json.treeToValue(n, type);
     }
 
     public JsonNode bodyTree() throws IOException {
