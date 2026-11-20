@@ -152,6 +152,7 @@ public final class ApiRoutes {
 
         new ValidationRoutes(services).register(r, e);
         new AuthRoutes(services.users(), services.authMode()).register(r, e);
+        new CleaningRoutes(services.cleaning()).register(r, e);
 
         r.setFallbackHandler(e.status(404, "No such endpoint"));
         r.setInvalidMethodHandler(e.status(405, "Method not allowed on this endpoint"));

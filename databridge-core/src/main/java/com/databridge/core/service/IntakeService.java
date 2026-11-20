@@ -365,7 +365,7 @@ public final class IntakeService {
         }
     }
 
-    private static String displayName(String fileName) {
+    static String displayName(String fileName) {
         String n = fileName == null ? "" : fileName.replace('\\', '/');
         n = n.substring(n.lastIndexOf('/') + 1).trim();
         if (n.isEmpty()) throw new ValidationException("A file name is required");

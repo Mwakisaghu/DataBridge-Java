@@ -201,6 +201,41 @@ class ApiServerTest {
     }
 
     @Test
+    void cleanAndDownloadReturnsTheCleanedWorkbookAndKeepsOnlyTheChangeLog() throws Exception {
+        String runId = openRun("CLEANAPI");
+        byte[] stat = java.nio.file.Files.readAllBytes(com.databridge.core.service.Samples.dir()
+                .resolve("with-errors/Sample Static Data Templates.xlsx"));
+        HttpRequest req = HttpRequest.newBuilder(URI.create(base + "/api/runs/" + runId + "/clean?kind=STATIC&fileName="
+                        + URLEncoder.encode("Sample Static Data Templates.xlsx", StandardCharsets.UTF_8)))
+                .header("X-DataBridge-User", "harry").header("Content-Type", "application/octet-stream")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(stat)).build();
+        HttpResponse<byte[]> res = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, res.statusCode(), () -> new String(res.body(), StandardCharsets.UTF_8));
+        assertTrue(res.headers().firstValue("Content-Disposition").orElse("").contains("Sample Static Data Templates (cleaned).xlsx"));
+        String jobId = res.headers().firstValue("X-DataBridge-Cleaning-Job").orElseThrow();
+        try (var wb = new XSSFWorkbook(new java.io.ByteArrayInputStream(res.body()))) {
+            assertEquals("+254712345678", wb.getSheet("Members").getRow(42).getCell(8).getStringCellValue());
+        }
+
+        Reply job = call("GET", "/api/cleaning-jobs/" + jobId, null);
+        assertEquals(200, job.status(), job.text());
+        assertTrue(job.body().get("job").get("cells").asInt() >= 4);
+        assertFalse(job.text().contains("712345678"), "the change log holds no values");
+        assertEquals(1, call("GET", "/api/runs/" + runId + "/cleaning-jobs", null).body().size());
+
+        assertTrue(call("GET", "/api/setup/cleaning", null).body().size() >= 10);
+        assertEquals(200, call("PUT", "/api/setup/cleaning/members.names",
+                "{\"sheet\":\"Members\",\"field\":\"Name\",\"action\":\"UPPER\"}").status());
+        assertEquals(400, call("PUT", "/api/setup/cleaning/bad.pad", "{\"sheet\":\"Members\",\"field\":\"No.\",\"action\":\"PAD_LEFT\"}").status());
+        assertEquals(204, call("DELETE", "/api/setup/cleaning/members.names", null).status());
+
+        Reply bad = send("POST", "/api/runs/" + runId + "/clean?kind=STATIC&fileName=x.xlsx", "application/octet-stream",
+                HttpRequest.BodyPublishers.ofByteArray("not a workbook".getBytes(StandardCharsets.UTF_8)));
+        assertEquals(400, bad.status());
+        assertTrue(bad.body().get("error").asText().contains("could not be cleaned"));
+    }
+
+    @Test
     void healthReportsDatabase() throws Exception {
         Reply r = call("GET", "/health", null);
         assertEquals(200, r.status());

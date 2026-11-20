@@ -71,13 +71,14 @@ public final class Endpoints {
         exchange.setStatusCode(r.status());
         exchange.getResponseHeaders().put(Headers.CACHE_CONTROL, "no-store");
         exchange.getResponseHeaders().put(Headers.X_CONTENT_TYPE_OPTIONS, "nosniff");
+        r.headers().forEach((k, v) -> exchange.getResponseHeaders().put(new io.undertow.util.HttpString(k), v));
         if (r.body() == null) {
             exchange.endExchange();
             return;
         }
         if (r.body() instanceof byte[] data) {
             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, r.contentType());
-            String name = r.fileName() == null ? "download" : r.fileName().replaceAll("[^A-Za-z0-9._ -]", "_");
+            String name = r.fileName() == null ? "download" : r.fileName().replaceAll("[^A-Za-z0-9._ ()-]", "_");
             exchange.getResponseHeaders().put(Headers.CONTENT_DISPOSITION, "attachment; filename=\"" + name + "\"");
             exchange.getResponseSender().send(ByteBuffer.wrap(data));
             return;

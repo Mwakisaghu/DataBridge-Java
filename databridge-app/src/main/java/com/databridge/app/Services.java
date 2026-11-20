@@ -13,4 +13,5 @@ import com.databridge.core.security.UserService;
 public record Services(SetupService setups, MigrationService migrations, IntakeService intake, RetentionService retention,
                        AuditLog audit, RuleService rules, FindingService findings, UserService users,
                        com.databridge.core.service.ReconciliationService recon,
+                       com.databridge.core.service.CleaningService cleaning,
                        String authMode) { }

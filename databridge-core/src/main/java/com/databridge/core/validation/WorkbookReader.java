@@ -56,7 +56,7 @@ public final class WorkbookReader {
         }
     }
 
-    static Object value(Cell cell, FieldType type) {
+    public static Object value(Cell cell, FieldType type) {
         if (cell == null) return null;
         CellType ct = cell.getCellType() == CellType.FORMULA ? cell.getCachedFormulaResultType() : cell.getCellType();
         switch (ct) {

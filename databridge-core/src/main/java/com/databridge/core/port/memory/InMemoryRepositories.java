@@ -247,6 +247,46 @@ public final class InMemoryRepositories {
         }
     }
 
+    public static final class Cleaning implements com.databridge.core.port.CleaningRepository {
+        private final Map<String, String> rules = new LinkedHashMap<>();
+        private final Map<String, com.databridge.core.domain.CleaningJob> jobs = new LinkedHashMap<>();
+        private final Map<String, List<com.databridge.core.cleaning.CleanChange>> changes = new LinkedHashMap<>();
+
+        @Override public synchronized List<com.databridge.core.cleaning.CleanRule> rules() {
+            List<com.databridge.core.cleaning.CleanRule> out = new ArrayList<>();
+            for (String j : rules.values()) {
+                try {
+                    out.add(SetupLoader.mapper().readValue(j, com.databridge.core.cleaning.CleanRule.class));
+                } catch (java.io.IOException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+            return out;
+        }
+        @Override public synchronized void saveRule(com.databridge.core.cleaning.CleanRule r, String actor, Instant at) {
+            try {
+                rules.put(r.getId(), SetupLoader.mapper().writeValueAsString(r));
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        @Override public synchronized boolean deleteRule(String id) { return rules.remove(id) != null; }
+        @Override public synchronized void insertJob(com.databridge.core.domain.CleaningJob job,
+                                                     List<com.databridge.core.cleaning.CleanChange> cs) {
+            jobs.put(job.id(), job);
+            changes.put(job.id(), List.copyOf(cs));
+        }
+        @Override public synchronized List<com.databridge.core.domain.CleaningJob> jobs(String runId) {
+            List<com.databridge.core.domain.CleaningJob> out = new ArrayList<>(jobs.values().stream().filter(j -> j.runId().equals(runId)).toList());
+            java.util.Collections.reverse(out);
+            return out;
+        }
+        @Override public synchronized Optional<com.databridge.core.domain.CleaningJob> job(String id) { return Optional.ofNullable(jobs.get(id)); }
+        @Override public synchronized List<com.databridge.core.cleaning.CleanChange> changes(String jobId) {
+            return changes.getOrDefault(jobId, List.of());
+        }
+    }
+
     public static final class Users implements UserRepository {
         private final Map<String, User> rows = new LinkedHashMap<>();
         private final Map<String, Session> sessions = new LinkedHashMap<>();

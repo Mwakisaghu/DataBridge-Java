@@ -17,6 +17,8 @@ import com.databridge.store.jdbc.JdbcRepositories;
 import com.databridge.store.jdbc.JdbcUserRepository;
 import com.databridge.store.jdbc.JdbcReconRepository;
 import com.databridge.core.service.ReconciliationService;
+import com.databridge.core.service.CleaningService;
+import com.databridge.store.jdbc.JdbcCleaningRepository;
 import com.databridge.store.jdbc.JdbcValidationRepositories;
 import com.databridge.store.jdbc.SchemaMigrator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -99,6 +101,7 @@ public final class DataBridgeServer implements AutoCloseable {
                     vrepos.findings(), migrations, audit, clock);
             IntakeService intake = new IntakeService(migrations, repos.datasets(), setups, rules, vrepos.checks(),
                     vrepos.findings(), workspaces, audit, clock, recon);
+            CleaningService cleaning = new CleaningService(new JdbcCleaningRepository(ds), migrations, setups, workspaces, audit, clock);
             FindingService findings = new FindingService(vrepos.checks(), vrepos.findings(), migrations, audit, clock);
             RetentionService retention = new RetentionService(setups, workspaces, audit);
             UserService users = new UserService(new JdbcUserRepository(ds), new PasswordHasher(), audit, clock,
@@ -113,7 +116,7 @@ public final class DataBridgeServer implements AutoCloseable {
             } else {
                 LOG.warn("Sign-in is OFF (auth.mode=none): every local caller has every role. Development only.");
             }
-            Services services = new Services(setups, migrations, intake, retention, audit, rules, findings, users, recon,
+            Services services = new Services(setups, migrations, intake, retention, audit, rules, findings, users, recon, cleaning,
                     config.authMode());
 
             if (retention.sweepOnStartup()) sweep(retention);

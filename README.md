@@ -95,7 +95,7 @@ http://localhost:5173, choose your own password, then add people under **Users**
 | Role | May |
 | --- | --- |
 | ADMIN | Everything: users, setups, rules, clearing client files |
-| CONSULTANT | Clients, projects, runs, uploads, submissions; request waivers |
+| CONSULTANT | Clients, projects, runs, uploads, submissions, cleaning; request waivers and explain variances |
 | REVIEWER | Decide waivers (never their own: maker-checker) |
 | FINANCE | Approve explanations of reconciliation variances; approve sign-off |
 | VIEWER | Read everything, change nothing |
@@ -150,6 +150,9 @@ With `DATABRIDGE_AUTH=none`, name yourself in the `X-DataBridge-User` header ins
 | GET | `/api/checks/{id}/register.xlsx` | Exception register as Excel |
 | POST | `/api/findings/{id}/waiver`, `/api/findings/{id}/waiver/decision` | Maker-checker waiver: request with a reason; a different user approves or rejects |
 | GET, PUT, DELETE | `/api/setup/rules`, `/api/setup/rules/{id}` | Rule Setup: shipped defaults, stored overrides |
+| POST | `/api/runs/{runId}/clean?kind=STATIC&fileName=...` | Clean a workbook (raw body); returns the cleaned .xlsx, job id in `X-DataBridge-Cleaning-Job` |
+| GET | `/api/runs/{runId}/cleaning-jobs`, `/api/cleaning-jobs/{id}` | Cleaning history and change logs (no values) |
+| GET, PUT, DELETE | `/api/setup/cleaning`, `/api/setup/cleaning/{id}` | Cleaning Setup (changes ADMIN) |
 | GET | `/api/checks/{id}/reconciliation` | Trial balance and control accounts of a check, with each variance's explanation |
 | GET | `/api/checks/{id}/reconciliation.xlsx` | Reconciliation pack as Excel |
 | GET | `/api/setup/reconciliation` | Reconciliation Setup in force: trial balance layout, control accounts |
@@ -165,6 +168,7 @@ With `DATABRIDGE_AUTH=none`, name yourself in the `X-DataBridge-User` header ins
 | Retention Setup | same row, `retention` block | When workspaces are destroyed, secure overwrite, startup sweep |
 | Template Setup | `template_setup_sheet` and `template_setup_field` tables, `/api/setup/templates` | Per sheet: BC table and ID, caption row, column types, required columns |
 | Rule Setup | `rule_setup` table, `/api/setup/rules` | Formats (KRA PIN, phone, email), uniqueness, references across sheets and workbooks, group totals, comparisons |
+| Cleaning Setup | `cleaning_setup` table, `/api/setup/cleaning` | Ordered cleaning rules: spaces, capitals, +254 phones, option values, padding, replacements, defaults, exact duplicate rows |
 | Reconciliation Setup | `recon_setup` table, `/api/setup/reconciliation` | Trial balance layout and tolerance; control accounts (GL account, normal side, subledger sheets and filters, tolerance) |
 
 Shipped defaults live in `databridge-core/src/main/resources/setup/`. Stored setups override them; the

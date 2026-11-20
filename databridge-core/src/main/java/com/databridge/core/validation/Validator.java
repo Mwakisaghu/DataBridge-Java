@@ -181,17 +181,38 @@ public final class Validator {
                 return;
             }
         }
-        if (trimmed.length() >= 5) {
-            for (String c : captions) {
-                if (c.length() >= 5 && distance(c.toLowerCase(Locale.ROOT), trimmed.toLowerCase(Locale.ROOT)) <= 2) {
-                    out.add(finding(Severity.WARNING, s, row, f, SCHEMA_OPTION, "OPTION",
-                            f.caption() + " is not an option value; Business Central has '" + c + "'", v, true));
-                    return;
-                }
-            }
+        List<String> close = closeOptions(captions, trimmed);
+        if (!close.isEmpty()) {
+            // A fix is automatic only when exactly one option is that close.
+            out.add(finding(Severity.WARNING, s, row, f, SCHEMA_OPTION, "OPTION",
+                    f.caption() + " is not an option value; Business Central has '" + close.get(0) + "'", v, close.size() == 1));
+            return;
         }
         out.add(finding(Severity.CRITICAL, s, row, f, SCHEMA_OPTION, "OPTION", f.caption() + " is not one of the "
                 + captions.stream().filter(c -> !c.isEmpty()).count() + " option values Business Central accepts", v, false));
+    }
+
+    /** Options within two edits of a text of at least five characters, ignoring case. */
+    static List<String> closeOptions(List<String> captions, String text) {
+        List<String> out = new ArrayList<>();
+        if (text.length() < 5) return out;
+        for (String c : captions) {
+            if (c.length() >= 5 && distance(c.toLowerCase(Locale.ROOT), text.toLowerCase(Locale.ROOT)) <= 2) out.add(c);
+        }
+        return out;
+    }
+
+    /**
+     * The option a text was meant to be, when that is certain: the same apart from capitals and
+     * spaces, or the only option within two edits. Empty otherwise.
+     */
+    public static Optional<String> optionMatch(List<String> captions, String text) {
+        if (text == null) return Optional.empty();
+        if (captions.contains(text)) return Optional.of(text);
+        String trimmed = text.trim().replaceAll("\\s+", " ");
+        for (String c : captions) if (c.equalsIgnoreCase(trimmed)) return Optional.of(c);
+        List<String> close = closeOptions(captions, trimmed);
+        return close.size() == 1 ? Optional.of(close.get(0)) : Optional.empty();
     }
 
     // ------------------------------------------------------------------ Rule Setup layer

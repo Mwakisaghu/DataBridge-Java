@@ -33,6 +33,7 @@ public final class Fixture {
     public final RuleService rules;
     public final FindingService findings;
     public final ReconciliationService recon;
+    public final CleaningService cleaning;
     public final Path workspaceRoot;
 
     public Fixture(Path tmp, ClientRepository clients, ProjectRepository projects, RunRepository runs,
@@ -45,13 +46,13 @@ public final class Fixture {
                    DatasetRepository datasets, AuditRepository auditRepo, SetupRepository setupRepo,
                    CheckRepository checks, FindingRepository findingRepo, RuleRepository ruleRepo) {
         this(tmp, clients, projects, runs, datasets, auditRepo, setupRepo, checks, findingRepo, ruleRepo,
-                new InMemoryRepositories.Recon());
+                new InMemoryRepositories.Recon(), new InMemoryRepositories.Cleaning());
     }
 
     public Fixture(Path tmp, ClientRepository clients, ProjectRepository projects, RunRepository runs,
                    DatasetRepository datasets, AuditRepository auditRepo, SetupRepository setupRepo,
                    CheckRepository checks, FindingRepository findingRepo, RuleRepository ruleRepo,
-                   ReconRepository reconRepo) {
+                   ReconRepository reconRepo, com.databridge.core.port.CleaningRepository cleaningRepo) {
         this.setupRepo = setupRepo;
         this.auditRepo = auditRepo;
         this.audit = new AuditLog(auditRepo, clock);
@@ -61,6 +62,7 @@ public final class Fixture {
         this.rules = new RuleService(ruleRepo, audit, clock);
         this.recon = new ReconciliationService(reconRepo, checks, findingRepo, migrations, audit, clock);
         this.intake = new IntakeService(migrations, datasets, setups, rules, checks, findingRepo, wm, audit, clock, recon);
+        this.cleaning = new CleaningService(cleaningRepo, migrations, setups, wm, audit, clock);
         this.findings = new FindingService(checks, findingRepo, migrations, audit, clock);
         this.retention = new RetentionService(setups, wm, audit);
         this.workspaceRoot = tmp.resolve("workspaces");

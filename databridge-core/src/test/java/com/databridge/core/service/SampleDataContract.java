@@ -41,11 +41,25 @@ public abstract class SampleDataContract {
     static final String[][] FILES = {{"Static", "STATIC"}, {"HR", "HR"}, {"Transactional", "TRANSACTIONAL"}};
 
     private List<StoredFinding> submit(Fixture fx, String run, String set) throws Exception {
+        return submit(fx, run, set, false);
+    }
+
+    /** Submits the three workbooks of a set, cleaning each first when {@code cleaned}. */
+    private List<StoredFinding> submit(Fixture fx, String run, String set, boolean cleaned) throws Exception {
         Submission.View s = fx.intake.openSubmission(run, "harry");
         for (String[] f : FILES) {
             Path p = Samples.dir().resolve(set).resolve("Sample " + f[0] + " Data Templates.xlsx");
+            TemplateKind kind = TemplateKind.valueOf(f[1]);
+            if (cleaned) {
+                CleaningService.Output out;
+                try (InputStream in = Files.newInputStream(p)) {
+                    out = fx.cleaning.clean(run, kind, p.getFileName().toString(), in, "harry");
+                }
+                fx.intake.addFile(s.id(), kind, out.fileName(), new java.io.ByteArrayInputStream(out.workbook()), "harry");
+                continue;
+            }
             try (InputStream in = Files.newInputStream(p)) {
-                fx.intake.addFile(s.id(), TemplateKind.valueOf(f[1]), p.getFileName().toString(), in, "harry");
+                fx.intake.addFile(s.id(), kind, p.getFileName().toString(), in, "harry");
             }
         }
         SubmissionResult r = fx.intake.process(s.id(), "harry");
@@ -58,6 +72,45 @@ public abstract class SampleDataContract {
 
     private static String key(String sheet, int row, String type) {
         return sheet + "|" + row + "|" + type;
+    }
+
+    @Test
+    void cleaningFixesExactlyTheAutoFixablePlantedErrorsAndNothingElse() throws Exception {
+        Fixture fx = fixture(tmp);
+        Client c = fx.migrations.createClient("CLEAN", "CLEAN SACCO", "harry");
+        Project p = fx.migrations.createProject(c.id(), "TEST", "Cleaning run", null, "harry");
+        MigrationRun run = fx.migrations.openRun(p.id(), RunType.MOCK, LocalDate.of(2026, 10, 31), "harry");
+
+        Set<String> before = keys(submit(fx, run.id(), "with-errors"));
+        Set<String> after = keys(submit(fx, run.id(), "with-errors", true));
+        Set<String> fixed = new java.util.TreeSet<>(before);
+        fixed.removeAll(after);
+        Set<String> added = new java.util.TreeSet<>(after);
+        added.removeAll(before);
+
+        Set<String> autoFixable = new java.util.TreeSet<>();
+        for (JsonNode s : new ObjectMapper().readTree(Samples.dir().resolve("seeded-errors.json").toFile())) {
+            if (s.get("auto_fixable").asText().equals("Yes")) {
+                autoFixable.add(key(s.get("sheet").asText(), s.get("row").asInt(), s.get("rule").asText()));
+            }
+        }
+        assertEquals(5, autoFixable.size());
+        assertEquals(autoFixable, fixed, "every auto-fixable planted error, and only those, is fixed");
+        assertTrue(added.isEmpty(), () -> "cleaning must not create new findings: " + added);
+
+        List<com.databridge.core.domain.CleaningJob> jobs = fx.cleaning.jobs(run.id());
+        assertEquals(3, jobs.size());
+        assertTrue(jobs.stream().allMatch(j -> j.sha256Out() != null && !j.sha256Out().equals(j.sha256In())));
+        var log = fx.cleaning.job(jobs.stream().filter(j -> j.kind() == TemplateKind.STATIC).findFirst().orElseThrow().id()).changes();
+        assertTrue(log.stream().anyMatch(ch -> ch.sheet().equals("Savings Accounts") && ch.rows().equals("571")));
+        assertTrue(log.stream().anyMatch(ch -> ch.field().equals("Phone No.") && ch.rows().contains("43")));
+        try (Stream<Path> left = Files.exists(fx.workspaceRoot) ? Files.list(fx.workspaceRoot) : Stream.empty()) {
+            assertEquals(0, left.count(), "no client files left after cleaning");
+        }
+    }
+
+    private static Set<String> keys(List<StoredFinding> fs) {
+        return fs.stream().map(f -> key(f.sheet(), f.rowNo(), f.ruleType())).collect(Collectors.toSet());
     }
 
     @Test
