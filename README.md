@@ -2,15 +2,30 @@
 
 DataBridge prepares client data for Microsoft Dynamics 365 Business Central migrations. It takes the
 Data Migration Templates a client fills in (static, transactional and HR), validates them, cleans
-them, reconciles opening balances and produces import-ready Configuration Packages.
+them, reconciles opening balances, builds import-ready configuration packages in dependency order,
+tracks the import (reading counts back from Business Central) and closes each run with a
+maker-checker sign-off and certificate.
+
+| # | Module | What it does | Design |
+| --- | --- | --- | --- |
+| 1 | Migration Control Centre | Clients, projects, mock and cutover runs | ADR 0002 |
+| 2 | Template & Data Validation | Submissions, schema and Rule Setup checks, exception register, maker-checker waivers | ADR 0005 |
+| 3 | Cleaning & Transformation | Cleaning Setup, clean-and-download, change logs without values | ADR 0008 |
+| 4 | Financial Reconciliation | Trial balance and control accounts, variances explained and approved by Finance | ADR 0007 |
+| 5 | Migration & Integration Hub | Import packages from the validated file, import order, tracking, Business Central counts | ADR 0009 |
+| 6 | Reporting & Audit Centre | KPIs, readiness checklist, sign-off and certificate, audit trail | ADR 0010 |
+
+Sign-in, roles and sessions: [ADR 0006](docs/adr/0006-sign-in-and-roles.md). Deployment:
+[docs/deployment.md](docs/deployment.md). What still needs a decision or access from you:
+[docs/status.md](docs/status.md).
 
 ## Modules
 
 | Folder | What it is | Status |
 | --- | --- | --- |
-| `databridge-core/` | Framework-free engine: domain model, setups, schema registry, validation engine, workspaces, services, CLI | Phase 0-1 |
-| `databridge-store-jdbc/` | Versioned SQL scripts per database, built-in migrator, database-neutral JDBC repositories | Phase 0 |
-| `databridge-app/` | Undertow REST server, no framework: routes, scheduled purge, hand wiring | Phase 0 |
+| `databridge-core/` | Framework-free engine: domain, setups, schema registry, validation, reconciliation, cleaning, integration, reporting, security, workspaces, CLI | Phases 0-5 |
+| `databridge-store-jdbc/` | Versioned SQL scripts (V1-V7), built-in migrator, database-neutral JDBC repositories | Phases 0-5 |
+| `databridge-app/` | Undertow REST server, no framework: routes with per-route roles, sign-in, UI hosting, security headers, scheduled purge | Phases 0-5 |
 | `DataBridge-Java/` | Legacy Undertow prototype and its 9 hand-coded validators | Retired in Phase 1; kept for reference |
 
 Why three modules: [ADR 0003](docs/adr/0003-core-store-app-modules.md).
@@ -62,6 +77,12 @@ mvn -q verify && java -jar databridge-app/target/databridge-app.jar
 # Terminal 2: DataBridge-FrontEnd/data-dashboard
 npm install && npm run dev        # open http://localhost:5173
 ```
+
+On Windows Git Bash, if `npm run dev` fails with "Cannot read properties of undefined (reading
+'stdin')", run `node node_modules/vite/bin/vite.js` instead. With the server on another port:
+`DATABRIDGE_PORT=8086 java -jar ...` and `DATABRIDGE_API=http://127.0.0.1:8086 node node_modules/vite/bin/vite.js`.
+
+The first start on a new database prints a temporary `admin` password; sign in with it.
 
 Data is kept in H2 database files under `~/databridge-data` and survives restarts. To start afresh,
 stop the server and delete that folder. Moving to PostgreSQL, MySQL or SQL Server later:

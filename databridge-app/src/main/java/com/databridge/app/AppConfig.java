@@ -18,7 +18,7 @@ import java.util.Properties;
  */
 public record AppConfig(String host, int port, String dbUrl, String dbUser, String dbPassword,
                         int sweepIntervalMinutes, String authMode, boolean secureCookie,
-                        int sessionIdleMinutes, int sessionAbsoluteHours, String adminPassword) {
+                        int sessionIdleMinutes, int sessionAbsoluteHours, String adminPassword, String uiDir) {
 
     static final Map<String, String> ENV_KEYS = Map.ofEntries(
             Map.entry("DATABRIDGE_HOST", "server.host"),
@@ -31,7 +31,8 @@ public record AppConfig(String host, int port, String dbUrl, String dbUser, Stri
             Map.entry("DATABRIDGE_SECURE_COOKIE", "auth.secureCookie"),
             Map.entry("DATABRIDGE_SESSION_IDLE_MINUTES", "auth.sessionIdleMinutes"),
             Map.entry("DATABRIDGE_SESSION_ABSOLUTE_HOURS", "auth.sessionAbsoluteHours"),
-            Map.entry("DATABRIDGE_ADMIN_PASSWORD", "auth.initialAdminPassword"));
+            Map.entry("DATABRIDGE_ADMIN_PASSWORD", "auth.initialAdminPassword"),
+            Map.entry("DATABRIDGE_UI_DIR", "server.uiDir"));
 
     public static AppConfig load(String[] args, Map<String, String> env) {
         Properties p = new Properties();
@@ -68,7 +69,8 @@ public record AppConfig(String host, int port, String dbUrl, String dbUser, Stri
                 Boolean.parseBoolean(p.getProperty("auth.secureCookie", "false").trim()),
                 integer(p, "auth.sessionIdleMinutes", 120),
                 integer(p, "auth.sessionAbsoluteHours", 12),
-                p.getProperty("auth.initialAdminPassword", ""));
+                p.getProperty("auth.initialAdminPassword", ""),
+                p.getProperty("server.uiDir", "").trim());
         if (c.port() < 0 || c.port() > 65535) throw new IllegalArgumentException("server.port must be 0-65535");
         if (c.sweepIntervalMinutes() < 1) throw new IllegalArgumentException("retention.sweepIntervalMinutes must be at least 1");
         if (!c.authMode().equals("local") && !c.authMode().equals("none")) {

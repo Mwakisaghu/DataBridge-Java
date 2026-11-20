@@ -78,7 +78,8 @@ public final class DataBridgeServer implements AutoCloseable {
         }
         Runtime.getRuntime().addShutdownHook(new Thread(server::close, "databridge-shutdown"));
         System.out.println("DataBridge listening on http://" + config.host() + ":" + server.port()
-                + "  (database " + config.safeDbUrl() + ")");
+                + "  (database " + config.safeDbUrl() + ", sign-in " + config.authMode()
+                + (config.uiDir().isEmpty() ? ", API only" : ", UI from " + config.uiDir()) + ")");
     }
 
     public static DataBridgeServer start(AppConfig config) {
@@ -133,7 +134,7 @@ public final class DataBridgeServer implements AutoCloseable {
             ApiRoutes routes = new ApiRoutes(services, () -> ping(ds), json);
             Undertow undertow = Undertow.builder()
                     .addHttpListener(config.port(), config.host())
-                    .setHandler(routes.build(new Endpoints(json, new Auth(mode, users, config.secureCookie()))))
+                    .setHandler(handler(config, routes.build(new Endpoints(json, new Auth(mode, users, config.secureCookie())))))
                     .build();
             undertow.start();
 
@@ -160,6 +161,13 @@ public final class DataBridgeServer implements AutoCloseable {
     }
 
     /** A one-line explanation of why startup failed, with what to do about it. */
+    /** The API alone, or the API plus the built UI from server.uiDir; security headers on every response. */
+    static io.undertow.server.HttpHandler handler(AppConfig config, io.undertow.server.HttpHandler api) {
+        io.undertow.server.HttpHandler h = config.uiDir().isEmpty() ? api
+                : com.databridge.app.http.WebHandlers.withUi(api, java.nio.file.Path.of(config.uiDir()));
+        return com.databridge.app.http.WebHandlers.secured(h, config.secureCookie());
+    }
+
     static String startupProblem(Throwable e, AppConfig config) {
         for (Throwable t = e; t != null; t = t.getCause()) {
             if (t instanceof java.net.BindException) {
