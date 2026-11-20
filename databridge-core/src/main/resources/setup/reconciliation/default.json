@@ -1,0 +1,27 @@
+{
+  "trialBalance": {
+    "sheet": "TRIAL BALANCE", "accountField": "No.", "nameField": "Description",
+    "debitField": "Debit", "creditField": "Credit", "tolerance": 0.00
+  },
+  "controls": [
+    { "id": "bosa-deposits", "glAccount": "201110", "name": "BOSA Member Deposits", "normal": "CREDIT",
+      "sources": [ { "sheet": "BOSA SAVINGS AC", "amountField": "Balance as at cutoff date", "whereField": "Account No.", "whereEndsWith": "01" } ] },
+    { "id": "share-capital", "glAccount": "301100", "name": "Share Capital", "normal": "CREDIT",
+      "sources": [ { "sheet": "BOSA SAVINGS AC", "amountField": "Balance as at cutoff date", "whereField": "Account No.", "whereEndsWith": "02" } ] },
+    { "id": "benevolent-fund", "glAccount": "201310", "name": "Benevolent Fund (BBF)", "normal": "CREDIT",
+      "sources": [ { "sheet": "BOSA SAVINGS AC", "amountField": "Balance as at cutoff date", "whereField": "Account No.", "whereEndsWith": "04" } ] },
+    { "id": "fosa-savings", "glAccount": "201210", "name": "FOSA Savings Accounts", "normal": "CREDIT",
+      "sources": [ { "sheet": "FOSA SAVINGS AC", "amountField": "Book Balance as at cutoff date" } ] },
+    { "id": "bosa-loans", "glAccount": "102110", "name": "BOSA Loans - Principal", "normal": "DEBIT",
+      "sources": [ { "sheet": "BOSA LOANS", "amountField": "Outstanding Principal as at cutoff day(KES)" } ] },
+    { "id": "fosa-loans", "glAccount": "102210", "name": "FOSA Loans - Principal", "normal": "DEBIT",
+      "sources": [ { "sheet": "FOSA LOANS", "amountField": "Outstanding Principal as at cutoff day(KES)" } ] },
+    { "id": "loan-interest", "glAccount": "102310", "name": "Loan Interest Receivable", "normal": "DEBIT",
+      "sources": [ { "sheet": "BOSA LOANS", "amountField": "Outstanding Interest as at cutoff day(KES)" },
+                   { "sheet": "FOSA LOANS", "amountField": "Outstanding Interest as at cutoff day(KES)" } ] },
+    { "id": "employer-receivables", "glAccount": "103100", "name": "Employer Remittances Receivable", "normal": "DEBIT",
+      "sources": [ { "sheet": "CUSTOMER BALANCES", "amountField": "Balance as at cutoff date" } ] },
+    { "id": "trade-creditors", "glAccount": "203100", "name": "Trade Creditors", "normal": "CREDIT",
+      "sources": [ { "sheet": "VENDOR BALANCES", "amountField": "Balance as at cutoff date" } ] }
+  ]
+}

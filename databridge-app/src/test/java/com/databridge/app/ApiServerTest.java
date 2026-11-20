@@ -182,6 +182,25 @@ class ApiServerTest {
     }
 
     @Test
+    void reconciliationSetupCanBeReadAndChanged() throws Exception {
+        Reply setup = call("GET", "/api/setup/reconciliation", null);
+        assertEquals(200, setup.status(), setup.text());
+        assertEquals(9, setup.body().get("controls").size());
+        Reply put = call("PUT", "/api/setup/reconciliation/controls/bank-balances",
+                "{\"glAccount\":\"104101\",\"name\":\"Nyota Bank\",\"normal\":\"DEBIT\","
+                + "\"sources\":[{\"sheet\":\"BANK BALANCES\",\"amountField\":\"Balance as at cutoff date\",\"whereField\":\"No\",\"whereEquals\":\"BNK001\"}]}");
+        assertEquals(200, put.status(), put.text());
+        assertEquals(10, call("GET", "/api/setup/reconciliation", null).body().get("controls").size());
+        assertEquals(400, call("PUT", "/api/setup/reconciliation/controls/bad", "{\"glAccount\":\"1\",\"normal\":\"DEBIT\"}").status(),
+                "a control needs a subledger");
+        assertEquals(204, call("DELETE", "/api/setup/reconciliation/controls/bank-balances", null).status());
+        assertEquals(200, call("PUT", "/api/setup/reconciliation/trial-balance",
+                "{\"sheet\":\"TRIAL BALANCE\",\"accountField\":\"No.\",\"debitField\":\"Debit\",\"creditField\":\"Credit\",\"tolerance\":0.01}").status());
+        assertTrue(call("GET", "/api/setup/reconciliation", null).body().get("trialBalanceStored").asBoolean());
+        assertEquals(204, call("DELETE", "/api/setup/reconciliation/trial-balance", null).status());
+    }
+
+    @Test
     void healthReportsDatabase() throws Exception {
         Reply r = call("GET", "/health", null);
         assertEquals(200, r.status());

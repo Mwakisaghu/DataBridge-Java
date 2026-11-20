@@ -160,6 +160,69 @@ class AuthApiTest {
         assertTrue(locked.body().get("error").asText().contains("locked"), locked.text());
     }
 
+    private static Reply upload(String path, byte[] bytes, String cookie) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(base + path)).header("X-DataBridge-Client", "test")
+                .header("Cookie", cookie).header("Content-Type", "application/octet-stream")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(bytes)).build();
+        HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+        return new Reply(r.statusCode(), r.body().isEmpty() ? null : json.readTree(r.body()), r.body(), null);
+    }
+
+    @Test
+    void reconciliationVariancesAreExplainedByAConsultantAndApprovedOnlyByFinance() throws Exception {
+        String admin = adminCookie();
+        String consultant = newUser(admin, "rec.consultant", "[\"CONSULTANT\"]");
+        String reviewer = newUser(admin, "rec.reviewer", "[\"REVIEWER\"]");
+        String finance = newUser(admin, "rec.finance", "[\"FINANCE\"]");
+
+        String clientId = call("POST", "/api/clients", "{\"code\":\"RECON\",\"name\":\"Recon SACCO\"}", consultant).body().get("id").asText();
+        String projectId = call("POST", "/api/clients/" + clientId + "/projects", "{\"code\":\"BC\",\"name\":\"Go-live\"}", consultant)
+                .body().get("id").asText();
+        String runId = call("POST", "/api/projects/" + projectId + "/runs", "{\"type\":\"MOCK\",\"cutoffDate\":\"2026-10-31\"}", consultant)
+                .body().get("id").asText();
+        String sid = call("POST", "/api/runs/" + runId + "/submissions", null, consultant).body().get("id").asText();
+        byte[] tx = java.nio.file.Files.readAllBytes(com.databridge.core.service.Samples.dir()
+                .resolve("with-errors/Sample Transactional Data Templates.xlsx"));
+        assertEquals(201, upload("/api/submissions/" + sid + "/files?kind=TRANSACTIONAL&fileName=Transactional.xlsx", tx, consultant).status());
+        Reply done = call("POST", "/api/submissions/" + sid + "/process", null, consultant);
+        assertEquals(201, done.status(), done.text());
+        String checkId = done.body().get("check").get("id").asText();
+
+        Reply lines = call("GET", "/api/checks/" + checkId + "/reconciliation", null, reviewer);
+        assertEquals(200, lines.status(), lines.text());
+        assertEquals(10, lines.body().size());
+        JsonNode bosa = null;
+        for (JsonNode l : lines.body()) if ("102110".equals(l.get("line").get("glAccount").asText())) bosa = l;
+        assertEquals("VARIANCE", bosa.get("line").get("status").asText());
+        assertEquals(81000.00, bosa.get("line").get("variance").asDouble(), 0.001);
+        String fid = bosa.get("finding").get("id").asText();
+
+        assertEquals(200, call("POST", "/api/findings/" + fid + "/waiver",
+                "{\"reason\":\"Loan BSL000999 was written off after cutoff; journal to follow\"}", consultant).status());
+        Reply byReviewer = call("POST", "/api/findings/" + fid + "/waiver/decision", "{\"approve\":true}", reviewer);
+        assertEquals(403, byReviewer.status());
+        assertTrue(byReviewer.body().get("error").asText().contains("Finance"));
+        assertEquals(200, call("POST", "/api/findings/" + fid + "/waiver/decision", "{\"approve\":true,\"note\":\"Agreed\"}", finance).status());
+
+        HttpResponse<byte[]> pack = http.send(HttpRequest.newBuilder(URI.create(base + "/api/checks/" + checkId + "/reconciliation.xlsx"))
+                .header("Cookie", finance).build(), HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, pack.statusCode());
+        try (var wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(pack.body()))) {
+            var sheet = wb.getSheet("Reconciliation");
+            boolean approved = false;
+            for (var row : sheet) {
+                if (row.getCell(2) != null && "102110".equals(row.getCell(2).getStringCellValue())) {
+                    approved = "Approved".equals(row.getCell(12).getStringCellValue())
+                            && "rec.finance".equals(row.getCell(13).getStringCellValue());
+                }
+            }
+            assertTrue(approved, "the pack shows who approved the explanation");
+        }
+
+        assertEquals(403, call("PUT", "/api/setup/reconciliation/trial-balance", "{\"sheet\":\"TB\"}", finance).status());
+        assertEquals(200, call("GET", "/api/setup/reconciliation", null, finance).status());
+    }
+
     @Test
     void signInIsOnByDefaultAndNoneIsRefusedOffThisMachine() {
         assertEquals("local", AppConfig.load(new String[0], Map.of()).authMode());

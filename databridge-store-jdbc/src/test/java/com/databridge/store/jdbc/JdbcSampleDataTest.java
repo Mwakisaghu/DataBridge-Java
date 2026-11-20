@@ -13,6 +13,6 @@ class JdbcSampleDataTest extends SampleDataContract {
         JdbcRepositories r = new JdbcRepositories(ds);
         JdbcValidationRepositories v = new JdbcValidationRepositories(ds);
         return new Fixture(tmp, r.clients(), r.projects(), r.runs(), r.datasets(), r.audit(), r.setups(),
-                v.checks(), v.findings(), v.rules());
+                v.checks(), v.findings(), v.rules(), new JdbcReconRepository(ds));
     }
 }

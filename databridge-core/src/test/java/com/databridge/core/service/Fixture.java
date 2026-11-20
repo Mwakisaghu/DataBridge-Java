@@ -4,6 +4,7 @@ import com.databridge.core.port.AuditRepository;
 import com.databridge.core.port.CheckRepository;
 import com.databridge.core.port.FindingRepository;
 import com.databridge.core.port.RuleRepository;
+import com.databridge.core.port.ReconRepository;
 import com.databridge.core.port.ClientRepository;
 import com.databridge.core.port.DatasetRepository;
 import com.databridge.core.port.ProjectRepository;
@@ -31,6 +32,7 @@ public final class Fixture {
     public final RetentionService retention;
     public final RuleService rules;
     public final FindingService findings;
+    public final ReconciliationService recon;
     public final Path workspaceRoot;
 
     public Fixture(Path tmp, ClientRepository clients, ProjectRepository projects, RunRepository runs,
@@ -42,6 +44,14 @@ public final class Fixture {
     public Fixture(Path tmp, ClientRepository clients, ProjectRepository projects, RunRepository runs,
                    DatasetRepository datasets, AuditRepository auditRepo, SetupRepository setupRepo,
                    CheckRepository checks, FindingRepository findingRepo, RuleRepository ruleRepo) {
+        this(tmp, clients, projects, runs, datasets, auditRepo, setupRepo, checks, findingRepo, ruleRepo,
+                new InMemoryRepositories.Recon());
+    }
+
+    public Fixture(Path tmp, ClientRepository clients, ProjectRepository projects, RunRepository runs,
+                   DatasetRepository datasets, AuditRepository auditRepo, SetupRepository setupRepo,
+                   CheckRepository checks, FindingRepository findingRepo, RuleRepository ruleRepo,
+                   ReconRepository reconRepo) {
         this.setupRepo = setupRepo;
         this.auditRepo = auditRepo;
         this.audit = new AuditLog(auditRepo, clock);
@@ -49,7 +59,8 @@ public final class Fixture {
         this.migrations = new MigrationService(clients, projects, runs, audit, clock);
         WorkspaceManagers wm = new WorkspaceManagers();
         this.rules = new RuleService(ruleRepo, audit, clock);
-        this.intake = new IntakeService(migrations, datasets, setups, rules, checks, findingRepo, wm, audit, clock);
+        this.recon = new ReconciliationService(reconRepo, checks, findingRepo, migrations, audit, clock);
+        this.intake = new IntakeService(migrations, datasets, setups, rules, checks, findingRepo, wm, audit, clock, recon);
         this.findings = new FindingService(checks, findingRepo, migrations, audit, clock);
         this.retention = new RetentionService(setups, wm, audit);
         this.workspaceRoot = tmp.resolve("workspaces");

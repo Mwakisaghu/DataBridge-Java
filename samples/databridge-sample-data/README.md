@@ -31,8 +31,8 @@ number, ID and KRA PIN is invented; emails use example.com. Cutoff date: 31 Oct 
 1. Upload the three `clean/` files to a run. Expect each to be read with the same structural
    warnings as the original templates (sheets without a BC table ID, untyped columns).
 2. Upload the `with-errors/` files as the next version. Intake passes them too: it checks structure.
-   The planted errors are data errors, which the Phase 1 validation engine must find exactly as
-   listed in the answer key.
+   The planted errors are data errors and reconciliation breaks, which validation and
+   reconciliation must find exactly as listed in the answer key.
 
 ## A real template flaw the clean set shows
 

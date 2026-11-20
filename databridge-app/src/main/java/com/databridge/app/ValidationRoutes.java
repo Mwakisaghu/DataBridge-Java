@@ -1,6 +1,11 @@
 package com.databridge.app;
 
 import com.databridge.app.http.Access;
+import com.databridge.core.domain.StoredFinding;
+import com.databridge.core.recon.ControlDef;
+import com.databridge.core.recon.TrialBalanceDef;
+import com.databridge.core.security.AuthException;
+import com.databridge.core.security.Role;
 import com.databridge.app.http.Endpoints;
 import com.databridge.app.http.Request;
 import com.databridge.app.http.Response;
@@ -28,7 +33,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-/** Module 2: submissions, validation checks, the exception register, waivers and the Rule Setup. */
+/** Modules 2 and 4: submissions, validation checks, the exception register, waivers and the Rule Setup. */
 public final class ValidationRoutes {
 
     /** A check with its per-sheet quality, skipped rules and finding counts by severity and status. */
@@ -79,11 +84,39 @@ public final class ValidationRoutes {
         }));
         r.post("/api/findings/{id}/waiver", e.handler(Access.CONSULTANT, q ->
                 Response.ok(s.findings().requestWaiver(q.path("id"), q.body(WaiverRequest.class).reason(), q.actor()))));
-        r.post("/api/findings/{id}/waiver/decision", e.handler(Access.REVIEWER, q -> {
+        r.post("/api/findings/{id}/waiver/decision", e.handler(Access.REVIEWER_OR_FINANCE, q -> {
+            // Reconciliation variances are explained to and approved by Finance; other findings by a reviewer.
+            StoredFinding f = s.findings().finding(q.path("id"));
+            boolean financial = f.ruleType().equals("CONTROL") || f.ruleType().equals("TB_BALANCE");
+            if (financial && !q.user().has(Role.FINANCE)) {
+                throw new AuthException("Only Finance may approve the explanation of a reconciliation variance", true);
+            }
+            if (!financial && !q.user().has(Role.REVIEWER)) {
+                throw new AuthException("Only a reviewer may decide this waiver", true);
+            }
             WaiverDecision d = q.body(WaiverDecision.class);
             if (d.approve() == null) throw new ValidationException("Say whether the waiver is approved (approve: true or false)");
             return Response.ok(s.findings().decideWaiver(q.path("id"), d.approve(), d.note(), q.actor()));
         }));
+
+        r.get("/api/checks/{id}/reconciliation", e.handler(q -> Response.ok(s.recon().lines(q.path("id")))));
+        r.get("/api/checks/{id}/reconciliation.xlsx", e.handler(q -> {
+            ValidationCheck c = s.findings().check(q.path("id"));
+            return Response.file(s.recon().pack(c.id()), Response.XLSX, "reconciliation-pack-check-" + c.checkNo() + ".xlsx");
+        }));
+        r.get("/api/setup/reconciliation", e.handler(q -> Response.ok(s.recon().views())));
+        r.put("/api/setup/reconciliation/trial-balance", e.handler(Access.ADMIN, q ->
+                Response.ok(s.recon().putTrialBalance(q.body(TrialBalanceDef.class), q.actor()))));
+        r.delete("/api/setup/reconciliation/trial-balance", e.handler(Access.ADMIN, q ->
+                s.recon().resetTrialBalance(q.actor()) ? Response.noContent() : Response.notFound()));
+        r.put("/api/setup/reconciliation/controls/{id}", e.handler(Access.ADMIN, q -> {
+            ControlDef c = q.body(ControlDef.class);
+            if (c.getId() == null) c.setId(q.path("id"));
+            else if (!c.getId().equals(q.path("id"))) throw new ValidationException("Control id in the body does not match the URL");
+            return Response.ok(s.recon().putControl(c, q.actor()));
+        }));
+        r.delete("/api/setup/reconciliation/controls/{id}", e.handler(Access.ADMIN, q ->
+                s.recon().deleteControl(q.path("id"), q.actor()) ? Response.noContent() : Response.notFound()));
 
         r.get("/api/setup/rules", e.handler(q -> Response.ok(s.rules().views())));
         r.put("/api/setup/rules/{id}", e.handler(Access.ADMIN, q -> {

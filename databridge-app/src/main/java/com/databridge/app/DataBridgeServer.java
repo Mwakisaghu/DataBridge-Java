@@ -15,6 +15,8 @@ import com.databridge.core.service.SetupService;
 import com.databridge.core.workspace.WorkspaceManagers;
 import com.databridge.store.jdbc.JdbcRepositories;
 import com.databridge.store.jdbc.JdbcUserRepository;
+import com.databridge.store.jdbc.JdbcReconRepository;
+import com.databridge.core.service.ReconciliationService;
 import com.databridge.store.jdbc.JdbcValidationRepositories;
 import com.databridge.store.jdbc.SchemaMigrator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -93,8 +95,10 @@ public final class DataBridgeServer implements AutoCloseable {
             WorkspaceManagers workspaces = new WorkspaceManagers();
             JdbcValidationRepositories vrepos = new JdbcValidationRepositories(ds);
             RuleService rules = new RuleService(vrepos.rules(), audit, clock);
+            ReconciliationService recon = new ReconciliationService(new JdbcReconRepository(ds), vrepos.checks(),
+                    vrepos.findings(), migrations, audit, clock);
             IntakeService intake = new IntakeService(migrations, repos.datasets(), setups, rules, vrepos.checks(),
-                    vrepos.findings(), workspaces, audit, clock);
+                    vrepos.findings(), workspaces, audit, clock, recon);
             FindingService findings = new FindingService(vrepos.checks(), vrepos.findings(), migrations, audit, clock);
             RetentionService retention = new RetentionService(setups, workspaces, audit);
             UserService users = new UserService(new JdbcUserRepository(ds), new PasswordHasher(), audit, clock,
@@ -109,7 +113,7 @@ public final class DataBridgeServer implements AutoCloseable {
             } else {
                 LOG.warn("Sign-in is OFF (auth.mode=none): every local caller has every role. Development only.");
             }
-            Services services = new Services(setups, migrations, intake, retention, audit, rules, findings, users,
+            Services services = new Services(setups, migrations, intake, retention, audit, rules, findings, users, recon,
                     config.authMode());
 
             if (retention.sweepOnStartup()) sweep(retention);

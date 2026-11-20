@@ -19,7 +19,8 @@ Why three modules: [ADR 0003](docs/adr/0003-core-store-app-modules.md).
 
 1. **No client data is kept.** Client files live only in a short-lived workspace that is destroyed
    when processing ends; the database holds structure, metadata and audit only
-   ([ADR 0001](docs/adr/0001-no-client-data-retention.md)).
+   ([ADR 0001](docs/adr/0001-no-client-data-retention.md)). The one exception is reconciliation:
+   account-level totals and variances are kept as evidence ([ADR 0007](docs/adr/0007-reconciliation.md)).
 2. **Setups, not code.** Anything that differs between clients or firms is a setup
    ([ADR 0002](docs/adr/0002-setup-driven-configuration.md)).
 3. **Fail closed.** A step that crashes is reported as ERROR, never as a pass.
@@ -28,7 +29,8 @@ Why three modules: [ADR 0003](docs/adr/0003-core-store-app-modules.md).
 
 `samples/databridge-sample-data/` holds a synthetic template set (invented people and numbers):
 a clean copy, a copy with planted errors and the answer key. The golden tests require DataBridge
-to find exactly the planted errors. See its README.
+to find exactly the planted errors: the 21 data errors, the unbalanced trial balance and both
+control-account variances. See its README.
 
 ## Build
 
@@ -95,7 +97,7 @@ http://localhost:5173, choose your own password, then add people under **Users**
 | ADMIN | Everything: users, setups, rules, clearing client files |
 | CONSULTANT | Clients, projects, runs, uploads, submissions; request waivers |
 | REVIEWER | Decide waivers (never their own: maker-checker) |
-| FINANCE | Explain and approve reconciliation variances; approve sign-off |
+| FINANCE | Approve explanations of reconciliation variances; approve sign-off |
 | VIEWER | Read everything, change nothing |
 
 | Setting (env) | Default | |
@@ -148,6 +150,10 @@ With `DATABRIDGE_AUTH=none`, name yourself in the `X-DataBridge-User` header ins
 | GET | `/api/checks/{id}/register.xlsx` | Exception register as Excel |
 | POST | `/api/findings/{id}/waiver`, `/api/findings/{id}/waiver/decision` | Maker-checker waiver: request with a reason; a different user approves or rejects |
 | GET, PUT, DELETE | `/api/setup/rules`, `/api/setup/rules/{id}` | Rule Setup: shipped defaults, stored overrides |
+| GET | `/api/checks/{id}/reconciliation` | Trial balance and control accounts of a check, with each variance's explanation |
+| GET | `/api/checks/{id}/reconciliation.xlsx` | Reconciliation pack as Excel |
+| GET | `/api/setup/reconciliation` | Reconciliation Setup in force: trial balance layout, control accounts |
+| PUT, DELETE | `/api/setup/reconciliation/trial-balance`, `/api/setup/reconciliation/controls/{id}` | Store or reset a part of it (ADMIN) |
 | POST | `/api/retention/purge?scope=all` | Destroy every client workspace now (`scope=expired` for expired only) |
 | GET | `/api/audit?entityType=&entityId=&limit=` | Audit trail, newest first |
 
@@ -159,6 +165,7 @@ With `DATABRIDGE_AUTH=none`, name yourself in the `X-DataBridge-User` header ins
 | Retention Setup | same row, `retention` block | When workspaces are destroyed, secure overwrite, startup sweep |
 | Template Setup | `template_setup_sheet` and `template_setup_field` tables, `/api/setup/templates` | Per sheet: BC table and ID, caption row, column types, required columns |
 | Rule Setup | `rule_setup` table, `/api/setup/rules` | Formats (KRA PIN, phone, email), uniqueness, references across sheets and workbooks, group totals, comparisons |
+| Reconciliation Setup | `recon_setup` table, `/api/setup/reconciliation` | Trial balance layout and tolerance; control accounts (GL account, normal side, subledger sheets and filters, tolerance) |
 
 Shipped defaults live in `databridge-core/src/main/resources/setup/`. Stored setups override them; the
 CLI reads the same JSON shape from a `--setup` folder.

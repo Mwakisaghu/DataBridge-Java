@@ -3,7 +3,8 @@ package com.databridge.core.finding;
 /**
  * One check result. {@code value} is already masked according to the Finding Value Mode and
  * {@code message} never quotes client values, so a finding can be stored and reported after the
- * client file itself has been purged.
+ * client file itself has been purged. Reconciliation findings (TB_BALANCE, CONTROL) are the one
+ * exception: they state account-level totals and variances (ADR 0007).
  *
  * @param kind       template workbook the sheet came from (STATIC, TRANSACTIONAL, HR, OTHER), or null for run-level checks
  * @param ruleId     the rule that produced it, e.g. {@code schema.option} or {@code members.kra-pin}

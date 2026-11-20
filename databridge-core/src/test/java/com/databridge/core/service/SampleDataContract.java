@@ -68,7 +68,7 @@ public abstract class SampleDataContract {
         MigrationRun run = fx.migrations.openRun(p.id(), RunType.MOCK, LocalDate.of(2026, 10, 31), "harry");
 
         List<StoredFinding> clean = submit(fx, run.id(), "clean");
-        assertEquals(48, clean.size());
+        assertEquals(48, clean.size(), "the clean set reconciles: no TB or control findings");
         assertTrue(clean.stream().allMatch(f -> f.sheet().equals("Employee Upload") && f.ruleType().equals("NUMBER")
                 && f.message().contains("too large") && (f.field().contains("Phone Number"))), "only the template's Integer phone columns");
 
@@ -84,13 +84,27 @@ public abstract class SampleDataContract {
         Map<String, String> expected = new HashMap<>();
         for (JsonNode s : seeded) {
             String type = s.get("rule").asText();
-            if (type.equals("CONTROL") || type.equals("TB_BALANCE")) continue; // reconciliation, Phase 2
             expected.put(key(s.get("sheet").asText(), s.get("row").asInt(), type), s.get("severity").asText().toUpperCase());
         }
         assertEquals(expected.keySet(), extra.keySet());
         for (Map.Entry<String, String> e : expected.entrySet()) {
             assertEquals(e.getValue(), extra.get(e.getKey()).severity().name(), e.getKey());
         }
+
+        // The reconciliation lines behind those findings: the TB and nine control accounts.
+        var lines = fx.recon.lines(fx.findings.checks(run.id()).get(0).id());
+        assertEquals(10, lines.size());
+        Map<String, String> variances = new HashMap<>();
+        for (var l : lines) {
+            if (l.line().variance() != null && l.line().variance().signum() != 0) {
+                variances.put(l.line().type() == com.databridge.core.recon.ReconLine.Type.TB ? "TB" : l.line().glAccount(),
+                        l.line().variance().toPlainString());
+            }
+        }
+        assertEquals(Map.of("TB", "1000.00", "102110", "81000.00", "201210", "50000.00"), variances);
+        assertTrue(extra.get(key("TRIAL BALANCE", 2, "CONTROL")).message().contains("81,000.00 below"));
+        assertTrue(extra.get(key("TRIAL BALANCE", 33, "TB_BALANCE")).message().equals("Debits exceed credits by 1,000.00"));
+
         try (Stream<Path> left = Files.exists(fx.workspaceRoot) ? Files.list(fx.workspaceRoot) : Stream.empty()) {
             assertEquals(0, left.count(), "no client files left after processing");
         }

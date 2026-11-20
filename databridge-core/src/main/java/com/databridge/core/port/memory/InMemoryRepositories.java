@@ -202,6 +202,51 @@ public final class InMemoryRepositories {
         @Override public synchronized boolean delete(String id) { return rows.remove(id) != null; }
     }
 
+    public static final class Recon implements com.databridge.core.port.ReconRepository {
+        private final Map<String, String> controls = new LinkedHashMap<>();
+        private String trialBalance;
+        private final Map<String, List<com.databridge.core.recon.ReconLine>> lines = new LinkedHashMap<>();
+
+        private static String json(Object o) {
+            try {
+                return SetupLoader.mapper().writeValueAsString(o);
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        private static <T> T read(String json, Class<T> type) {
+            try {
+                return SetupLoader.mapper().readValue(json, type);
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        @Override public synchronized List<com.databridge.core.recon.ControlDef> controls() {
+            return controls.values().stream().map(j -> read(j, com.databridge.core.recon.ControlDef.class)).toList();
+        }
+        @Override public synchronized void saveControl(com.databridge.core.recon.ControlDef c, String actor, Instant at) {
+            controls.put(c.getId(), json(c));
+        }
+        @Override public synchronized boolean deleteControl(String id) { return controls.remove(id) != null; }
+        @Override public synchronized Optional<com.databridge.core.recon.TrialBalanceDef> trialBalance() {
+            return Optional.ofNullable(trialBalance).map(j -> read(j, com.databridge.core.recon.TrialBalanceDef.class));
+        }
+        @Override public synchronized void saveTrialBalance(com.databridge.core.recon.TrialBalanceDef tb, String actor, Instant at) {
+            trialBalance = json(tb);
+        }
+        @Override public synchronized boolean deleteTrialBalance() {
+            boolean had = trialBalance != null;
+            trialBalance = null;
+            return had;
+        }
+        @Override public synchronized void insertLines(String checkId, String runId, List<com.databridge.core.recon.ReconLine> ls) {
+            lines.put(checkId, List.copyOf(ls));
+        }
+        @Override public synchronized List<com.databridge.core.recon.ReconLine> lines(String checkId) {
+            return lines.getOrDefault(checkId, List.of());
+        }
+    }
+
     public static final class Users implements UserRepository {
         private final Map<String, User> rows = new LinkedHashMap<>();
         private final Map<String, Session> sessions = new LinkedHashMap<>();

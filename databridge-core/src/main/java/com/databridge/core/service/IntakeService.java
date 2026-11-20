@@ -73,12 +73,22 @@ public final class IntakeService {
     private final com.databridge.core.workspace.WorkspaceManagers workspaces;
     private final AuditLog audit;
     private final Clock clock;
+    private final ReconciliationService recon;
     private final ObjectMapper json = new ObjectMapper();
     private final Map<String, Submission> open = new ConcurrentHashMap<>();
 
     public IntakeService(MigrationService migrations, DatasetRepository datasets, SetupService setups, RuleService rules,
                          CheckRepository checks, FindingRepository findings,
                          com.databridge.core.workspace.WorkspaceManagers workspaces, AuditLog audit, Clock clock) {
+        this(migrations, datasets, setups, rules, checks, findings, workspaces, audit, clock, null);
+    }
+
+    /** With {@code recon}, every submission is also reconciled (trial balance and control accounts). */
+    public IntakeService(MigrationService migrations, DatasetRepository datasets, SetupService setups, RuleService rules,
+                         CheckRepository checks, FindingRepository findings,
+                         com.databridge.core.workspace.WorkspaceManagers workspaces, AuditLog audit, Clock clock,
+                         ReconciliationService recon) {
+        this.recon = recon;
         this.migrations = migrations;
         this.datasets = datasets;
         this.setups = setups;
@@ -168,7 +178,19 @@ public final class IntakeService {
                 Outcome<ValidationResult> v = Outcome.run("validate",
                         () -> new Validator(rules.effective(), new ValueMasker(g.getFindingValueMode())).validate(sheets));
                 ValidationResult result = v.isSuccess() ? v.value() : new ValidationResult(List.of(), List.of(), List.of());
-                ValidationCheck check = saveCheck(run, recorded, result, anyError, v.error().orElse(null), who);
+                String error = v.error().orElse(null);
+                com.databridge.core.recon.ReconResult rec = com.databridge.core.recon.ReconResult.none();
+                if (recon != null && v.isSuccess()) {
+                    Outcome<com.databridge.core.recon.ReconResult> o = Outcome.run("reconcile", () -> recon.reconcile(sheets));
+                    if (o.isSuccess()) {
+                        rec = o.value();
+                        result = Validator.combine(sheets, result, rec.findings(), rec.skipped());
+                    } else {
+                        error = o.error().orElse("Reconciliation failed");
+                    }
+                }
+                ValidationCheck check = saveCheck(run, recorded, result, anyError, error, who);
+                if (!rec.lines().isEmpty()) recon.save(check.id(), run.id(), rec.lines());
                 audit.record(who, "CHECK_COMPLETED", "CHECK", check.id(), "Check " + check.checkNo() + ": " + check.status()
                         + ", " + check.rows() + " row(s), " + check.critical() + " critical, " + check.warning()
                         + " warning(s), readiness " + check.readiness().movePointRight(2).setScale(1, RoundingMode.HALF_UP) + "%");

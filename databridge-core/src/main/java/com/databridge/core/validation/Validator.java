@@ -88,12 +88,27 @@ public final class Validator {
                 default: skipped.add(new SkippedRule(r.getId(), "Unknown rule type"));
             }
         }
+        sort(findings);
+        return new ValidationResult(findings, stats(sheets, findings), skipped);
+    }
+
+    /** A result with more findings and skipped checks added, e.g. from reconciliation; sheet quality recomputed. */
+    public static ValidationResult combine(List<SheetData> sheets, ValidationResult r, List<Finding> more, List<SkippedRule> moreSkipped) {
+        if (more.isEmpty() && moreSkipped.isEmpty()) return r;
+        List<Finding> all = new ArrayList<>(r.findings());
+        all.addAll(more);
+        sort(all);
+        List<SkippedRule> skipped = new ArrayList<>(r.skipped());
+        skipped.addAll(moreSkipped);
+        return new ValidationResult(all, stats(sheets, all), skipped);
+    }
+
+    private static void sort(List<Finding> findings) {
         findings.sort((a, b) -> {
             int c = a.severity().compareTo(b.severity());
             if (c == 0) c = String.valueOf(a.sheet()).compareTo(String.valueOf(b.sheet()));
             return c != 0 ? c : Integer.compare(a.row(), b.row());
         });
-        return new ValidationResult(findings, stats(sheets, findings), skipped);
     }
 
     // ------------------------------------------------------------------ schema layer
