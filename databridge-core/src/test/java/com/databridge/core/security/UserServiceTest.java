@@ -52,6 +52,16 @@ class UserServiceTest {
     }
 
     @Test
+    void everyTemporaryPasswordMeetsThePolicy() {
+        // Regression: about 1 in 12 used to have no digit and was refused by the policy.
+        for (int i = 0; i < 5000; i++) {
+            String pw = PasswordHasher.temporaryPassword();
+            assertEquals(16, pw.length());
+            assertTrue(pw.chars().anyMatch(Character::isDigit) && pw.chars().anyMatch(Character::isLetter), pw);
+        }
+    }
+
+    @Test
     void passwordsAreHashedNotStored() {
         String pw = users.bootstrap("correct-horse-battery-9").orElseThrow();
         User u = users.user(adminId());

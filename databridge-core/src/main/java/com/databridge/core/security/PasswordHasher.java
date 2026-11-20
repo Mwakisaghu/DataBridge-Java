@@ -52,10 +52,22 @@ public final class PasswordHasher {
 
     /** A random password for new accounts and resets: 16 characters, no look-alike letters. */
     public static String temporaryPassword() {
-        String alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 16; i++) sb.append(alphabet.charAt(RANDOM.nextInt(alphabet.length())));
-        return sb.toString();
+        String letters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz";
+        String digits = "23456789";
+        String all = letters + digits;
+        // Always letters and at least two digits, so the password policy accepts every one issued.
+        char[] pw = new char[16];
+        for (int i = 0; i < pw.length; i++) pw[i] = all.charAt(RANDOM.nextInt(all.length()));
+        pw[0] = letters.charAt(RANDOM.nextInt(letters.length()));
+        pw[1] = digits.charAt(RANDOM.nextInt(digits.length()));
+        pw[2] = digits.charAt(RANDOM.nextInt(digits.length()));
+        for (int i = pw.length - 1; i > 0; i--) {
+            int j = RANDOM.nextInt(i + 1);
+            char t = pw[i];
+            pw[i] = pw[j];
+            pw[j] = t;
+        }
+        return new String(pw);
     }
 
     private static byte[] derive(char[] password, byte[] salt, int iterations) {
